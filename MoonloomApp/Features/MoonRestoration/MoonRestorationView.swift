@@ -1,17 +1,18 @@
 import SwiftUI
 
-/// Moon Restoration / Story screen. Shows restoration progress, a short story
-/// beat, and the New Moon Reset (prestige) entry point.
-///
-/// The narrative copy here is an intentional, clearly-scoped placeholder: a
-/// single rotating story beat keyed to restoration progress. The full
-/// biome-by-biome story sequence is a later phase (PROJECT_TRACKER E007 /
-/// asset work E009); this screen is functional and safe in the meantime.
+/// Moon Restoration / Story screen. Shows overall restoration, the list of moon
+/// biomes (restored / next / locked) the player restores by spending Moonlight,
+/// and the New Moon Reset (prestige) entry point. Restoring a biome reveals a
+/// story beat and plays a sparkle celebration.
 struct MoonRestorationView: View {
     @EnvironmentObject private var gameState: GameState
     @EnvironmentObject private var container: AppContainer
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showPrestigeConfirm = false
+    @State private var burstTrigger = 0
+    @State private var burstText = ""
+
     private let formatter = NumberAbbreviator()
 
     private var threshold: Double {
@@ -27,11 +28,13 @@ struct MoonRestorationView: View {
                         MoonProgressView(progress: gameState.moonRestoration)
                             .padding(.top, 12)
 
-                        storyBeat
+                        moonlightBalance
+                        biomeList
                         prestigePanel
                     }
                     .padding()
                 }
+                RewardBurstView(text: burstText, trigger: burstTrigger)
             }
             .navigationTitle("Moon Restoration")
             .navigationBarTitleDisplayMode(.inline)
@@ -51,15 +54,80 @@ struct MoonRestorationView: View {
         }
     }
 
-    private var storyBeat: some View {
-        Text(storyText(for: gameState.moonRestoration))
-            .font(.callout)
-            .italic()
-            .multilineTextAlignment(.center)
-            .foregroundStyle(Theme.textSecondary)
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.deepBlue.opacity(0.35)))
+    private var moonlightBalance: some View {
+        HStack(spacing: 6) {
+            Image(systemName: ResourceType.moonlight.systemImage).foregroundStyle(Theme.moonGold)
+            Text("\(formatter.string(from: gameState.amount(of: .moonlight))) Moonlight")
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Theme.textPrimary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Theme.deepBlue.opacity(0.5)))
+    }
+
+    private var biomeList: some View {
+        VStack(spacing: 10) {
+            ForEach(gameState.restorationNodes) { node in
+                biomeRow(node)
+            }
+        }
+    }
+
+    private func biomeRow(_ node: RestorationNode) -> some View {
+        let restored = gameState.isNodeRestored(node)
+        let isNext = gameState.nextRestorationNode?.id == node.id
+        let canRestore = gameState.canRestore(node)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: restored ? "moon.stars.fill" : (isNext ? "moonphase.waxing.crescent" : "lock.fill"))
+                    .font(.title3)
+                    .foregroundStyle(restored ? Theme.moonGold : (isNext ? Theme.softViolet : Theme.textSecondary))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Theme.deepBlue.opacity(0.6)))
+                    .shadow(color: restored ? Theme.moonGold.opacity(0.6) : .clear, radius: restored ? 8 : 0)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(node.name)
+                        .font(.headline)
+                        .foregroundStyle(restored || isNext ? Theme.textPrimary : Theme.textSecondary)
+                    if restored {
+                        Text(node.story)
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                    } else if isNext {
+                        Text("Restore for \(formatter.string(from: node.cost)) Moonlight")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                    } else {
+                        Text("Restore the previous biome first.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                if isNext {
+                    Button { restore(node) } label: {
+                        Text("Restore")
+                            .font(.subheadline.weight(.bold))
+                            .padding(.vertical, 8).padding(.horizontal, 14)
+                            .background(RoundedRectangle(cornerRadius: 12)
+                                .fill(canRestore ? Theme.moonGold : Theme.deepBlue.opacity(0.5)))
+                            .foregroundStyle(canRestore ? Theme.midnight : Theme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canRestore)
+                }
+            }
+        }
+        .padding()
+        .background(RoundedRectangle(cornerRadius: 14)
+            .fill(Theme.deepBlue.opacity(restored ? 0.4 : (isNext ? 0.3 : 0.18))))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(canRestore ? Theme.moonGold.opacity(0.6) : .clear, lineWidth: 1.5)
+        )
     }
 
     private var prestigePanel: some View {
@@ -119,18 +187,14 @@ struct MoonRestorationView: View {
         }
     }
 
-    private func storyText(for progress: Double) -> String {
-        switch progress {
-        case ..<0.01:
-            return "The moon hangs dark and silent. Your first whispers stir in the sleeping towns below."
-        case ..<0.25:
-            return "Faint light returns to the moon's edge. The moths grow bolder with every dream you weave."
-        case ..<0.6:
-            return "Whole craters glow again. Sleepers below dream of silver light they cannot name."
-        case ..<1.0:
-            return "The moon is nearly whole. One more push and the night will remember how to shine."
-        default:
-            return "The moon blazes full and bright. A New Moon Reset will let you begin again — stronger."
+    private func restore(_ node: RestorationNode) {
+        guard container.restoreNode(node) else { return }
+        burstText = "\(node.name) restored!"
+        if reduceMotion {
+            // Still bump the trigger; RewardBurstView keeps the animation minimal.
+            burstTrigger += 1
+        } else {
+            withAnimation { burstTrigger += 1 }
         }
     }
 }

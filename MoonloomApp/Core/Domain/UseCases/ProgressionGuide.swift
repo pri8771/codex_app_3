@@ -39,12 +39,24 @@ struct ProgressionGuide {
             return "Buy \(spindle.unlockRequirement) × \(gating.name) (\(have)/\(spindle.unlockRequirement)) to unlock Dreamthread."
         }
 
-        // 4. Nudge toward an affordable upgrade (clear power spike).
+        // 4. A restorable biome is a major progress beat — surface it.
+        if let node = state.nextRestorationNode, state.canRestore(node) {
+            return "Restore \(node.name) on the Moon screen to brighten the moon."
+        }
+
+        // 5. Nudge toward an affordable upgrade (clear power spike).
         if let upgrade = state.affordableUpgrades().first {
             return "You can afford \(upgrade.name) — upgrade to boost production."
         }
 
-        // 5. Otherwise, point at the next order's requirement.
+        // 6. Once Moonlight is flowing, point toward the next biome's cost.
+        if let node = state.nextRestorationNode,
+           state.outputPerSecond(of: .moonlight) > 0,
+           state.amount(of: .moonlight) < node.cost {
+            return "Save \(formatter.string(from: node.cost)) Moonlight to restore \(node.name)."
+        }
+
+        // 7. Otherwise, point at the next order's requirement.
         if let order = state.activeOrder {
             return "Gather \(formatter.string(from: order.requestAmount)) \(order.requestResource.displayName) for the next Dream Order."
         }

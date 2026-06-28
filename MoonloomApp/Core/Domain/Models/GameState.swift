@@ -33,7 +33,9 @@ final class GameState: ObservableObject {
     @Published private(set) var ordersFulfilled: Int
 
     // MARK: - Moon restoration & prestige
-    @Published private(set) var moonRestoration: Double      // 0.0 ... 1.0
+    /// Identifiers of restored biome nodes. Overall restoration is the fraction
+    /// of `config.restorationNodes` restored.
+    @Published private(set) var restoredNodeIDs: Set<String>
     @Published private(set) var resetCount: Int
     @Published private(set) var totalLucidShardsEarned: Double
     @Published private(set) var bestRunMoonlightRestored: Double
@@ -60,7 +62,7 @@ final class GameState: ObservableObject {
         self.buildingCounts = snapshot.buildingCounts
         self.purchasedUpgradeIDs = Set(snapshot.purchasedUpgradeIDs)
         self.ordersFulfilled = snapshot.ordersFulfilled
-        self.moonRestoration = snapshot.moonRestoration
+        self.restoredNodeIDs = Set(snapshot.restoredNodeIDs)
         self.resetCount = snapshot.resetCount
         self.totalLucidShardsEarned = snapshot.totalLucidShardsEarned
         self.bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
@@ -82,7 +84,7 @@ final class GameState: ObservableObject {
         buildingCounts = snapshot.buildingCounts
         purchasedUpgradeIDs = Set(snapshot.purchasedUpgradeIDs)
         ordersFulfilled = snapshot.ordersFulfilled
-        moonRestoration = snapshot.moonRestoration
+        restoredNodeIDs = Set(snapshot.restoredNodeIDs)
         resetCount = snapshot.resetCount
         totalLucidShardsEarned = snapshot.totalLucidShardsEarned
         bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
@@ -320,14 +322,15 @@ final class GameState: ObservableObject {
     }
 
     /// Advance the simulation by `delta` seconds of *active* production.
-    /// Called by `ProductionEngine` on the main actor each tick.
+    /// Called by `ProductionEngine` on the main actor each tick. Production only
+    /// accrues currencies; the player spends Moonlight on the Moon Restoration
+    /// screen to restore biomes.
     func applyProduction(delta: TimeInterval) {
         guard delta > 0 else { return }
         let perResource = outputPerSecondByResource()
         for (resource, perSecond) in perResource {
             credit(resource, perSecond * delta)
         }
-        advanceMoonRestoration(byMoonlightDelta: (perResource[.moonlight] ?? 0) * delta)
     }
 
     /// Apply a pre-computed bundle of offline earnings (already penalised and
@@ -335,17 +338,49 @@ final class GameState: ObservableObject {
     func applyOfflineEarnings(_ earnings: [ResourceType: Double]) {
         for (resource, value) in earnings {
             credit(resource, value)
-            if resource == .moonlight {
-                advanceMoonRestoration(byMoonlightDelta: value)
-            }
         }
     }
 
-    private func advanceMoonRestoration(byMoonlightDelta delta: Double) {
-        guard delta > 0, config.moonlightForFullRestoration > 0 else { return }
-        let progressGain = delta / config.moonlightForFullRestoration
-        moonRestoration = min(1.0, moonRestoration + progressGain)
+    // MARK: - Moon restoration
+
+    /// The moon's biomes (from config), in restoration order.
+    var restorationNodes: [RestorationNode] {
+        config.restorationNodes.sorted { $0.order < $1.order }
+    }
+
+    /// Overall moon restoration as a fraction of biomes restored (0...1).
+    var moonRestoration: Double {
+        let total = config.restorationNodes.count
+        return total == 0 ? 0 : Double(restoredNodeIDs.count) / Double(total)
+    }
+
+    func isNodeRestored(_ node: RestorationNode) -> Bool {
+        restoredNodeIDs.contains(node.id)
+    }
+
+    /// The next biome to restore (lowest-order unrestored node), or `nil` when
+    /// the moon is fully restored.
+    var nextRestorationNode: RestorationNode? {
+        config.restorationNodes
+            .sorted { $0.order < $1.order }
+            .first { !isNodeRestored($0) }
+    }
+
+    /// Whether the given node can be restored now (it is next in order and the
+    /// player can afford its Moonlight cost).
+    func canRestore(_ node: RestorationNode) -> Bool {
+        guard nextRestorationNode?.id == node.id else { return false }
+        return amount(of: config.restorationCurrency) >= node.cost
+    }
+
+    /// Restore a biome by spending Moonlight. Returns whether it succeeded.
+    @discardableResult
+    func restoreNode(_ node: RestorationNode) -> Bool {
+        guard canRestore(node) else { return false }
+        guard spend(config.restorationCurrency, node.cost) else { return false }
+        restoredNodeIDs.insert(node.id)
         bestRunMoonlightRestored = max(bestRunMoonlightRestored, moonRestoration)
+        return true
     }
 
     /// Whether the player can buy one more of the given tier (engine API alias).
@@ -378,7 +413,7 @@ final class GameState: ObservableObject {
         }
         buildingCounts = [:]
         purchasedUpgradeIDs.removeAll()  // building upgrades are run-scoped
-        moonRestoration = 0
+        restoredNodeIDs.removeAll()
         credit(.lucidShards, shardsEarned)
         totalLucidShardsEarned += shardsEarned
         resetCount += 1
@@ -400,7 +435,7 @@ final class GameState: ObservableObject {
             buildingCounts: buildingCounts,
             purchasedUpgradeIDs: Array(purchasedUpgradeIDs),
             ordersFulfilled: ordersFulfilled,
-            moonRestoration: moonRestoration,
+            restoredNodeIDs: Array(restoredNodeIDs),
             resetCount: resetCount,
             totalLucidShardsEarned: totalLucidShardsEarned,
             bestRunMoonlightRestored: bestRunMoonlightRestored,

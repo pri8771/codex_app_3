@@ -5,6 +5,9 @@ struct OfflineWelcomeView: View {
     let result: OfflineEarningsCalculator.Result
     let onDismiss: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = false
+
     private let formatter = NumberAbbreviator()
 
     private var earnedResources: [ResourceType] {
@@ -18,6 +21,8 @@ struct OfflineWelcomeView: View {
                 Image(systemName: "moon.stars.fill")
                     .font(.system(size: 56))
                     .foregroundStyle(Theme.moonGold)
+                    .scaleEffect(revealed || reduceMotion ? 1 : 0.5)
+                    .opacity(revealed || reduceMotion ? 1 : 0)
                 Text("Welcome back!")
                     .font(.system(.title, design: .rounded).weight(.bold))
                     .foregroundStyle(Theme.textPrimary)
@@ -27,7 +32,7 @@ struct OfflineWelcomeView: View {
                     .foregroundStyle(Theme.textSecondary)
 
                 VStack(spacing: 10) {
-                    ForEach(earnedResources) { type in
+                    ForEach(Array(earnedResources.enumerated()), id: \.element) { index, type in
                         HStack {
                             Label(type.displayName, systemImage: type.systemImage)
                                 .foregroundStyle(Theme.textPrimary)
@@ -37,6 +42,11 @@ struct OfflineWelcomeView: View {
                                 .foregroundStyle(Theme.moonGold)
                                 .monospacedDigit()
                         }
+                        .opacity(revealed || reduceMotion ? 1 : 0)
+                        .offset(y: revealed || reduceMotion ? 0 : 12)
+                        .animation(reduceMotion ? nil
+                                   : .spring(response: 0.4, dampingFraction: 0.8).delay(0.15 * Double(index) + 0.2),
+                                   value: revealed)
                     }
                 }
                 .padding()
@@ -53,6 +63,13 @@ struct OfflineWelcomeView: View {
                 .buttonStyle(.plain)
             }
             .padding(28)
+        }
+        .onAppear {
+            if reduceMotion {
+                revealed = true
+            } else {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { revealed = true }
+            }
         }
     }
 

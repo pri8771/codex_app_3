@@ -7,6 +7,9 @@ struct UpgradesView: View {
     @EnvironmentObject private var container: AppContainer
     @Environment(\.dismiss) private var dismiss
 
+    @State private var burstTrigger = 0
+    @State private var burstText = ""
+
     private var viewModel: UpgradesViewModel { UpgradesViewModel(gameState: gameState) }
 
     var body: some View {
@@ -26,6 +29,7 @@ struct UpgradesView: View {
                     }
                     .padding()
                 }
+                RewardBurstView(text: burstText, trigger: burstTrigger)
             }
             .navigationTitle("Upgrades")
             .navigationBarTitleDisplayMode(.inline)
@@ -109,7 +113,7 @@ struct UpgradesView: View {
         case .available, .unaffordable:
             let affordable = row.availability == .available
             Button {
-                _ = container.purchaseUpgrade(row.upgrade)
+                buy(row)
             } label: {
                 VStack(spacing: 2) {
                     Text("Upgrade").font(.subheadline.weight(.bold))
@@ -129,5 +133,11 @@ struct UpgradesView: View {
             .buttonStyle(.plain)
             .disabled(!affordable)
         }
+    }
+
+    private func buy(_ row: UpgradesViewModel.Row) {
+        guard container.purchaseUpgrade(row.upgrade) else { return }
+        burstText = "\(row.upgrade.name)!"
+        burstTrigger += 1
     }
 }

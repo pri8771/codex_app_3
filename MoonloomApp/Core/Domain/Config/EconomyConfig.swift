@@ -123,11 +123,49 @@ struct EconomyConfig: Sendable {
         tiers.first { $0.id == id }
     }
 
-    // MARK: - Moon restoration
+    // MARK: - Moon restoration (biome nodes)
 
-    /// Total lifetime moonlight required to fully restore the moon (progress
-    /// 0.0 → 1.0) within a single run. Foundation value; tuned in later phases.
-    let moonlightForFullRestoration: Double = 1_000_000
+    /// Currency spent to restore the moon's biomes. Per the PRDs, Moonlight is
+    /// the progression currency that powers Moon Restoration.
+    let restorationCurrency: ResourceType = .moonlight
+
+    /// The moon's biomes, restored in order by spending Moonlight. Restoring a
+    /// node advances overall moon restoration and reveals a story beat.
+    let restorationNodes: [RestorationNode] = [
+        RestorationNode(id: "biome_tranquil_sea", order: 1, name: "The Tranquil Sea",
+                        story: "The first silver light returns to the Tranquil Sea. Somewhere, a child sleeps soundly again.",
+                        cost: 500),
+        RestorationNode(id: "biome_whispering_craters", order: 2, name: "Whispering Craters",
+                        story: "The craters fill with soft glow, and the old whispers find their echo.",
+                        cost: 2_500),
+        RestorationNode(id: "biome_lullaby_highlands", order: 3, name: "Lullaby Highlands",
+                        story: "Across the highlands, forgotten lullabies hum themselves back into being.",
+                        cost: 12_000),
+        RestorationNode(id: "biome_dreaming_maria", order: 4, name: "The Dreaming Maria",
+                        story: "The great dark seas brighten; dreamers below sail them once more.",
+                        cost: 60_000),
+        RestorationNode(id: "biome_mothlight_gardens", order: 5, name: "Mothlight Gardens",
+                        story: "Gardens of light bloom where the moth couriers first learned to fly.",
+                        cost: 300_000),
+        RestorationNode(id: "biome_lucid_pole", order: 6, name: "The Lucid Pole",
+                        story: "At the pole, the moon remembers how to dream of itself.",
+                        cost: 1_500_000),
+        RestorationNode(id: "biome_sea_of_returning", order: 7, name: "Sea of Returning Dreams",
+                        story: "Every dream ever lost washes gently back onto a glowing shore.",
+                        cost: 8_000_000),
+        RestorationNode(id: "biome_moonheart_summit", order: 8, name: "The Moonheart Summit",
+                        story: "The summit blazes. The moon is whole — and the world below dreams in full color.",
+                        cost: 40_000_000)
+    ]
+
+    func restorationNode(id: String) -> RestorationNode? {
+        restorationNodes.first { $0.id == id }
+    }
+
+    /// Total Moonlight to fully restore the moon (sum of all node costs).
+    var totalRestorationCost: Double {
+        restorationNodes.reduce(0) { $0 + $1.cost }
+    }
 
     // MARK: - Prestige (New Moon Reset) — see TECHNICAL_PRD.md §6
 
@@ -157,6 +195,10 @@ struct EconomyConfig: Sendable {
 
     /// Production tick interval in seconds (`TECHNICAL_PRD.md` §4).
     let tickInterval: Double = 0.1
+
+    /// Cadence of the gentle "production pulse" haptic/sound feedback, so it
+    /// fires at a cozy heartbeat rather than on every 0.1s tick.
+    let productionPulseInterval: Double = 1.0
 
     // MARK: - Upgrades (per-building multipliers)
 

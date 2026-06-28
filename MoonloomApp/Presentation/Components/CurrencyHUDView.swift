@@ -28,13 +28,16 @@ struct CurrencyHUDView: View {
     }
 
     private func chip(for type: ResourceType) -> some View {
-        HStack(spacing: 6) {
+        let value = gameState.amount(of: type)
+        return HStack(spacing: 6) {
             Image(systemName: type.systemImage)
                 .foregroundStyle(Theme.moonGold)
-            Text(formatter.string(from: gameState.amount(of: type)))
+            Text(formatter.string(from: value))
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(.easeOut(duration: 0.2), value: formatter.string(from: value))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

@@ -7,14 +7,17 @@ struct FactoryView: View {
     @EnvironmentObject private var gameState: GameState
     @EnvironmentObject private var container: AppContainer
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showUpgrades = false
     @State private var showOrders = false
+    @State private var toastWorkItem: DispatchWorkItem?
+    @State private var badgeBounce = false
 
     private var viewModel: FactoryViewModel { FactoryViewModel(gameState: gameState) }
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .top) {
                 Theme.backgroundGradient.ignoresSafeArea()
                 VStack(spacing: 0) {
                     CurrencyHUDView()
@@ -23,6 +26,9 @@ struct FactoryView: View {
                         guidanceBanner(objective)
                     }
                     buildingList
+                }
+                if let message = container.celebrationMessage {
+                    celebrationToast(message)
                 }
             }
             .navigationTitle("Dream Factory")
@@ -34,7 +40,33 @@ struct FactoryView: View {
             }
             .sheet(isPresented: $showOrders) { OrdersView() }
             .sheet(isPresented: $showUpgrades) { UpgradesView() }
+            .onChange(of: container.celebrationMessage) { _, message in
+                scheduleToastDismiss(for: message)
+            }
         }
+    }
+
+    private func celebrationToast(_ message: String) -> some View {
+        Text(message)
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(Theme.midnight)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Capsule().fill(Theme.moonGold))
+            .shadow(radius: 6)
+            .padding(.top, 4)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zIndex(1)
+    }
+
+    private func scheduleToastDismiss(for message: String?) {
+        toastWorkItem?.cancel()
+        guard message != nil else { return }
+        let work = DispatchWorkItem { [container] in
+            withAnimation { container.celebrationMessage = nil }
+        }
+        toastWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
     }
 
     private var headline: some View {
@@ -84,7 +116,14 @@ struct FactoryView: View {
             Image(systemName: "scroll.fill")
                 .overlay(alignment: .topTrailing) {
                     if viewModel.hasOrderReady {
-                        Circle().fill(Theme.moonGold).frame(width: 9, height: 9).offset(x: 5, y: -4)
+                        Circle()
+                            .fill(Theme.moonGold)
+                            .frame(width: 9, height: 9)
+                            .offset(x: 5, y: badgeBounce ? -7 : -4)
+                            .animation(reduceMotion ? nil
+                                       : .easeInOut(duration: 0.5).repeatForever(autoreverses: true),
+                                       value: badgeBounce)
+                            .onAppear { badgeBounce = true }
                     }
                 }
         }
@@ -108,38 +147,15 @@ struct FactoryView: View {
     private var buildingList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                ForEach(viewModel.visibleTiers) { tier in
+                // All 12 tiers are always visible; locked tiers render greyed
+                // with an unlock hint (handled inside BuildingRowView).
+                ForEach(gameState.config.tiers) { tier in
                     BuildingRowView(tier: tier)
                         .padding(.horizontal)
                     Divider().overlay(Theme.textSecondary.opacity(0.15))
                 }
-
-                if let locked = viewModel.nextLockedTier {
-                    lockedTeaser(locked)
-                        .padding()
-                }
             }
             .padding(.vertical, 8)
         }
-    }
-
-    private func lockedTeaser(_ tier: ProductionTier) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "lock.fill")
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(Theme.deepBlue.opacity(0.4)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tier.name)
-                    .font(.headline)
-                    .foregroundStyle(Theme.textSecondary)
-                Text(viewModel.unlockHint(for: tier))
-                    .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            Spacer()
-        }
-        .padding()
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.deepBlue.opacity(0.25)))
     }
 }

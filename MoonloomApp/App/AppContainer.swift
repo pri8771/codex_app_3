@@ -26,8 +26,16 @@ final class AppContainer: ObservableObject {
     /// Set when there are offline earnings to present in the "Welcome back" modal.
     @Published var pendingOfflineEarnings: OfflineEarningsCalculator.Result?
     @Published private(set) var isBootstrapped = false
+    /// Transient banner text for a tier unlock or milestone (cleared by the UI).
+    @Published var celebrationMessage: String?
 
     private var engine: ProductionEngine?
+
+    // Progression-event tracking (for unlock/milestone celebrations).
+    private var knownUnlockedTierIDs: Set<String> = []
+    private var knownMilestoneIDs: Set<String> = []
+    // Accumulator for the gentle ~1Hz "production pulse" feedback.
+    private var pulseAccumulator: TimeInterval = 0
 
     init(
         modelContainer: ModelContainer,
@@ -63,6 +71,11 @@ final class AppContainer: ObservableObject {
         }
         gameState.updateLastActive(now)
 
+        // Seed known unlocks/milestones so existing progress doesn't re-fire
+        // celebrations on launch.
+        knownUnlockedTierIDs = Set(gameState.unlockedTiers.map(\.id))
+        knownMilestoneIDs = Set(gameState.achievedMilestones.map(\.id))
+
         applySettingsToServices()
         analytics.log(.appLaunched)
         if gameState.isMusicEnabled { audio.startAmbientMusic() }
@@ -81,6 +94,8 @@ final class AppContainer: ObservableObject {
             haptics.impact(.light)
             audio.playSFX("building_tap")
             analytics.log(.buildingPurchased(tierID: tier.id, count: gameState.count(of: tier.id)))
+            checkProgressEvents()
+            Task { await save() }
         } else {
             haptics.warning()
         }
@@ -95,6 +110,7 @@ final class AppContainer: ObservableObject {
             haptics.impact(.medium)
             audio.playSFX("upgrade")
             analytics.log(.upgradePurchased(upgradeID: upgrade.id))
+            checkProgressEvents()
             Task { await save() }
         } else {
             haptics.warning()
@@ -110,6 +126,21 @@ final class AppContainer: ObservableObject {
             haptics.success()
             audio.playSFX("order_complete")
             analytics.log(.orderFulfilled(index: order.index, rewardAmount: order.rewardAmount))
+            Task { await save() }
+        } else {
+            haptics.warning()
+        }
+        return success
+    }
+
+    /// Restore a moon biome by spending Moonlight. Returns whether it succeeded.
+    @discardableResult
+    func restoreNode(_ node: RestorationNode) -> Bool {
+        let success = gameState.restoreNode(node)
+        if success {
+            haptics.success()
+            audio.playSFX("moon_restore")
+            checkProgressEvents()
             Task { await save() }
         } else {
             haptics.warning()
@@ -218,12 +249,59 @@ final class AppContainer: ObservableObject {
                 tickInterval: config.tickInterval,
                 timeProvider: timeProvider,
                 apply: { [weak self] delta in
-                    self?.gameState.applyProduction(delta: delta)
+                    self?.onTick(delta: delta)
                 }
             )
         }
         await engine?.resetBaseline()
         await engine?.start()
+    }
+
+    /// Per-tick hook: advance production, emit the gentle production pulse, and
+    /// detect newly unlocked tiers/milestones for celebration.
+    private func onTick(delta: TimeInterval) {
+        gameState.applyProduction(delta: delta)
+        emitProductionPulse(delta: delta)
+        checkProgressEvents()
+    }
+
+    /// A subtle ~1Hz "heartbeat" sound hook while the factory is producing, so
+    /// the screen feels alive without firing on every 0.1s tick. Deliberately a
+    /// *sound* pulse only — a continuous 1Hz haptic would drain battery and
+    /// annoy, so haptics are reserved for discrete events (purchase, upgrade,
+    /// order, unlock, milestone, restore).
+    private func emitProductionPulse(delta: TimeInterval) {
+        guard gameState.totalBuildingCount > 0 else {
+            pulseAccumulator = 0
+            return
+        }
+        pulseAccumulator += delta
+        guard pulseAccumulator >= config.productionPulseInterval else { return }
+        pulseAccumulator = 0
+        audio.playSFX("production_tick")
+    }
+
+    /// Fire one-shot celebrations when a new tier unlocks or a milestone is met.
+    private func checkProgressEvents() {
+        let unlocked = Set(gameState.unlockedTiers.map(\.id))
+        let newTiers = unlocked.subtracting(knownUnlockedTierIDs)
+        knownUnlockedTierIDs = unlocked
+        if let tier = gameState.config.tiers
+            .filter({ newTiers.contains($0.id) })
+            .max(by: { $0.tier < $1.tier }) {
+            celebrationMessage = "New building unlocked: \(tier.name)!"
+            haptics.impact(.heavy)
+            audio.playSFX("tier_unlock")
+        }
+
+        let achieved = Set(gameState.achievedMilestones.map(\.id))
+        let newMilestones = achieved.subtracting(knownMilestoneIDs)
+        knownMilestoneIDs = achieved
+        if let milestone = gameState.config.milestones.first(where: { newMilestones.contains($0.id) }) {
+            celebrationMessage = "Milestone reached: \(milestone.name)!"
+            haptics.success()
+            audio.playSFX("milestone")
+        }
     }
 
     private func save() async {

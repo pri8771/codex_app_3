@@ -40,7 +40,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             buildingCounts: counts,
             purchasedUpgradeIDs: purchasedUpgrades,
             ordersFulfilled: prestige.ordersFulfilled,
-            moonRestoration: prestige.currentMoonRestoration,
+            restoredNodeIDs: prestige.restoredNodeIDs,
             resetCount: prestige.resetCount,
             totalLucidShardsEarned: prestige.totalLucidShardsEarned,
             bestRunMoonlightRestored: prestige.bestRunMoonlightRestored,
@@ -125,7 +125,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             prestige.totalLucidShardsEarned = snapshot.totalLucidShardsEarned
             prestige.permanentUpgrades = snapshot.permanentUpgradeIDs
             prestige.bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
-            prestige.currentMoonRestoration = snapshot.moonRestoration
+            prestige.restoredNodeIDs = snapshot.restoredNodeIDs
             prestige.ordersFulfilled = snapshot.ordersFulfilled
             prestige.schemaVersion = snapshot.schemaVersion
         } else {
@@ -135,7 +135,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
                 permanentUpgrades: snapshot.permanentUpgradeIDs,
                 bestRunMoonlightRestored: snapshot.bestRunMoonlightRestored,
                 lastResetDate: nil,
-                currentMoonRestoration: snapshot.moonRestoration,
+                restoredNodeIDs: snapshot.restoredNodeIDs,
                 ordersFulfilled: snapshot.ordersFulfilled,
                 schemaVersion: snapshot.schemaVersion
             ))

@@ -21,6 +21,15 @@
 > **guided next-step** banner for the first five minutes, and reward/upgrade
 > visual feedback. E004 complete; new test suites added (upgrades, milestones,
 > orders, economy simulation).
+>
+> **Phase 3 milestone (2026-06-28, MOONLOOM-PROMPT-003):** factory polish for a
+> cozy, alive feel — all 12 tiers always visible (locked greyed), building
+> visual states (idle/producing/maxed glow), animated counters, bouncing
+> order-ready badge, upgrade-confirmation flash, staggered offline-earnings
+> reveal, tier/milestone celebration toasts, and sound/haptic hooks. **Moon
+> Restoration reworked into spendable biome nodes** (Moonlight cost from config,
+> story beats, sparkle). Reduced-motion support throughout. New tests for
+> restoration costs, settings persistence, and production-rate accuracy.
 
 ---
 
@@ -166,10 +175,13 @@ full multiplier stack verified by `EconomySimulationTests` / `UpgradeAndMileston
 | T007-10 | Offline earnings "welcome back" modal | ✅ | 3 | 2026-08-19 | 2026-08-20 | E005 |
 | T007-11 | New Moon Reset confirmation screen | ✅ | 3 | 2026-08-20 | 2026-08-21 | E006 |
 | T007-12 | Statistics/player history screen | 📅 | 3 | 2026-08-21 | 2026-08-22 | None |
-| T007-13 | Animations + visual polish | 📅 | 3 | 2026-08-22 | 2026-08-23 | T007-01 |
+| T007-13 | Animations + visual polish | ✅ | 3 | 2026-08-22 | 2026-08-23 | T007-01 |
 
 *Shop screen (T007-06) is a non-charging catalog placeholder until StoreKit
-(E008) lands. Tab navigation shell (Factory/Moon/Shop/Settings) complete.*
+(E008) lands. Tab navigation shell (Factory/Moon/Shop/Settings) complete.
+Phase 3 added building visual states, animated counters, celebration toasts,
+and reduced-motion support (T007-13), plus the Moon Restoration biome-node flow
+(extends T007-03).*
 
 ---
 

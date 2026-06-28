@@ -497,7 +497,7 @@ Xcode 16.
 ---
 
 ### MOONLOOM-PROMPT-003: Main Factory UI and Upgrade Flow
-**Date:** 2026-06-27 | **Phase:** Implementation | **Tool:** Claude Code | **Epic:** E007 | **Status:** 📅 Queued
+**Date:** 2026-06-28 | **Phase:** Implementation | **Tool:** Claude Code | **Epic:** E007 | **Status:** ✅ Used
 
 ```
 Implement Phase 3 for Moonloom: playable factory UI and upgrade purchasing.
@@ -537,6 +537,47 @@ Acceptance criteria:
 - UI remains responsive (60fps).
 - App builds. Tests pass. Trackers updated.
 ```
+
+**Refined brief (2026-06-28):** Phase 3 was run with a polish-focused brief —
+prove "does the factory feel cozy and alive?" via animation/feedback rather than
+new systems. (No StoreKit, events, or prestige layers.)
+
+**Outcome (2026-06-28):** Polished the Phase 2 loop into a cozy, alive factory.
+
+Note on currency: the brief said "Mooncoins," which is not a documented
+currency. Per the PRDs, **Moonlight** is the progression currency that powers
+Moon Restoration, and the Non-Technical PRD describes restoring the moon **biome
+by biome** — so restoration nodes were implemented as biomes costing Moonlight.
+
+Delivered:
+- **Moon Restoration reworked to real, spendable nodes**: `RestorationNode`
+  model + 8 biomes in `EconomyConfig` (escalating Moonlight costs). `moonRestoration`
+  is now the fraction of biomes restored; `GameState.restoreNode` spends Moonlight,
+  reveals a story beat, and updates best-run. `MoonRestorationView` shows
+  restored/next/locked biomes with a sparkle celebration. Persistence migrated
+  (`PrestigeRecord.restoredNodeIDs`, `GameSnapshot.restoredNodeIDs`).
+- **All 12 tiers always visible**; locked tiers render greyed with a
+  "Next unlock at X" hint (`BuildingRowView`).
+- **Building visual states**: idle (dim) / producing (pulsing glow) / maxed
+  (golden crown + glow).
+- **Animated counters** (currency HUD + per-tier rate via `.contentTransition(.numericText())`),
+  **bouncing "order ready" badge**, **upgrade confirmation flash**, and a
+  **staggered offline-earnings reveal**.
+- **Tier-unlock / milestone celebrations** (toast + haptic + sound) detected in
+  `AppContainer`, plus a gentle ~1Hz production *sound* pulse (haptics reserved
+  for discrete events to protect battery).
+- **Sound + haptic hooks** on purchase, upgrade, order, unlock, milestone, and
+  biome restore via `AudioService`/`HapticsService`.
+- **Smarter `ProgressionGuide`** (now suggests restoring a biome / saving Moonlight).
+- **Reduced-motion support** throughout (animations gated by
+  `accessibilityReduceMotion`).
+
+Tests added/updated: `MoonRestorationTests` (node costs, sequential restore,
+spend, fraction, prestige clear), `SettingsAndRateTests` (settings persistence,
+production-rate accuracy at various upgrade/milestone levels).
+
+Verification note: same as BUG-001 — authored on Linux without an Xcode
+toolchain; `xcodebuild build`/`test` not executed here.
 
 ---
 
@@ -870,10 +911,10 @@ Return:
 | Ideation (ChatGPT) | 2 | 2 | 0 |
 | Architecture | 2 | 0 | 2 |
 | Claude Code Universal | 1 | 0 | 1 |
-| Claude Code Implementation | 8 | 2 | 6 |
+| Claude Code Implementation | 8 | 3 | 5 |
 | Claude Code Audit | 1 | 0 | 1 |
-| **Total** | **14** | **4** | **10** |
+| **Total** | **14** | **5** | **9** |
 
 ---
 
-*Last updated: 2026-06-28 — MOONLOOM-PROMPT-002 (core idle loop) implemented*
+*Last updated: 2026-06-28 — MOONLOOM-PROMPT-003 (factory polish + Moon Restoration) implemented*

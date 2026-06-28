@@ -25,7 +25,7 @@ struct GameSnapshot: Codable, Sendable, Equatable {
     var ordersFulfilled: Int
 
     // MARK: Moon restoration & prestige
-    var moonRestoration: Double
+    var restoredNodeIDs: [String]
     var resetCount: Int
     var totalLucidShardsEarned: Double
     var bestRunMoonlightRestored: Double
@@ -50,7 +50,7 @@ struct GameSnapshot: Codable, Sendable, Equatable {
             buildingCounts: [:],
             purchasedUpgradeIDs: [],
             ordersFulfilled: 0,
-            moonRestoration: 0,
+            restoredNodeIDs: [],
             resetCount: 0,
             totalLucidShardsEarned: 0,
             bestRunMoonlightRestored: 0,
