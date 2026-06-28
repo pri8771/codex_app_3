@@ -8,6 +8,7 @@ enum AppDatabase {
     static let schema = Schema([
         CurrencyRecord.self,
         BuildingRecord.self,
+        UpgradeRecord.self,
         PrestigeRecord.self,
         SettingsRecord.self
     ])

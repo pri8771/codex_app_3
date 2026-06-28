@@ -14,6 +14,12 @@ final class GameState: ObservableObject {
 
     let config: EconomyConfig
 
+    /// Cached upgrade definitions grouped by building, built once from `config`
+    /// so the hot production path avoids rebuilding the upgrade catalog.
+    private let upgradesByBuilding: [String: [Upgrade]]
+    /// Deterministic generator for the Dream Order chain.
+    private let orderGenerator: OrderGenerator
+
     // MARK: - Currencies
     @Published private(set) var currencyAmounts: [ResourceType: Double]
     @Published private(set) var currencyLifetimeEarned: [ResourceType: Double]
@@ -21,6 +27,10 @@ final class GameState: ObservableObject {
     // MARK: - Buildings & upgrades
     @Published private(set) var buildingCounts: [String: Int]
     @Published private(set) var purchasedUpgradeIDs: Set<String>
+
+    // MARK: - Orders
+    /// Number of Dream Orders fulfilled (drives the sequential order board).
+    @Published private(set) var ordersFulfilled: Int
 
     // MARK: - Moon restoration & prestige
     @Published private(set) var moonRestoration: Double      // 0.0 ... 1.0
@@ -43,10 +53,13 @@ final class GameState: ObservableObject {
 
     init(config: EconomyConfig = EconomyConfig(), snapshot: GameSnapshot) {
         self.config = config
+        self.upgradesByBuilding = Dictionary(grouping: config.upgrades, by: \.buildingID)
+        self.orderGenerator = OrderGenerator(config: config)
         self.currencyAmounts = Self.decodeCurrencies(snapshot.currencyAmounts)
         self.currencyLifetimeEarned = Self.decodeCurrencies(snapshot.currencyLifetimeEarned)
         self.buildingCounts = snapshot.buildingCounts
         self.purchasedUpgradeIDs = Set(snapshot.purchasedUpgradeIDs)
+        self.ordersFulfilled = snapshot.ordersFulfilled
         self.moonRestoration = snapshot.moonRestoration
         self.resetCount = snapshot.resetCount
         self.totalLucidShardsEarned = snapshot.totalLucidShardsEarned
@@ -68,6 +81,7 @@ final class GameState: ObservableObject {
         currencyLifetimeEarned = Self.decodeCurrencies(snapshot.currencyLifetimeEarned)
         buildingCounts = snapshot.buildingCounts
         purchasedUpgradeIDs = Set(snapshot.purchasedUpgradeIDs)
+        ordersFulfilled = snapshot.ordersFulfilled
         moonRestoration = snapshot.moonRestoration
         resetCount = snapshot.resetCount
         totalLucidShardsEarned = snapshot.totalLucidShardsEarned
@@ -127,32 +141,163 @@ final class GameState: ObservableObject {
         amount(of: tier.costCurrency) >= nextCost(for: tier)
     }
 
+    /// Output-per-second for a single tier, applying the full documented
+    /// multiplier stack (`TECHNICAL_PRD.md` §4 / `MOONLOOM-PROMPT-002`):
+    /// `count × baseCPS × upgradeMultiplier × globalMultiplier × prestigeMultiplier`.
+    func outputPerSecond(forTier tier: ProductionTier) -> Double {
+        Double(count(of: tier.id))
+            * tier.baseOutputPerSecond
+            * buildingMultiplier(for: tier.id)
+            * globalMultiplier
+            * prestigeMultiplier
+    }
+
     /// Aggregate output-per-second for a currency across all owned buildings,
-    /// before offline penalties. Includes the prestige multiplier.
+    /// before offline penalties.
     func outputPerSecond(of resource: ResourceType) -> Double {
         config.tiers.reduce(0) { partial, tier in
-            guard tier.produces == resource else { return partial }
-            let count = Double(self.count(of: tier.id))
-            return partial + count * tier.baseOutputPerSecond * prestigeMultiplier
+            tier.produces == resource ? partial + outputPerSecond(forTier: tier) : partial
         }
     }
 
     /// Output-per-second for every resource, keyed by type. Used by the engine
-    /// and the offline calculator.
+    /// and the offline calculator. Computes the shared global/prestige
+    /// multipliers once for efficiency (the hot tick path).
     func outputPerSecondByResource() -> [ResourceType: Double] {
+        let global = globalMultiplier
+        let prestige = prestigeMultiplier
         var result: [ResourceType: Double] = [:]
         for tier in config.tiers {
-            let count = Double(self.count(of: tier.id))
+            let count = self.count(of: tier.id)
             guard count > 0 else { continue }
-            result[tier.produces, default: 0] += count * tier.baseOutputPerSecond * prestigeMultiplier
+            let rate = Double(count)
+                * tier.baseOutputPerSecond
+                * buildingMultiplier(for: tier.id)
+                * global
+                * prestige
+            result[tier.produces, default: 0] += rate
         }
         return result
     }
+
+    /// Snapshot of current production rates per resource, for UI display.
+    /// (`calculateProductionRates()` in the engine API.)
+    func calculateProductionRates() -> [ResourceType: Double] {
+        outputPerSecondByResource()
+    }
+
+    // MARK: - Multipliers
 
     /// Permanent production multiplier granted by prestige progress. Each Lucid
     /// Shard adds a small permanent boost (foundation value; tuned later).
     var prestigeMultiplier: Double {
         1.0 + (totalLucidShardsEarned * 0.02)
+    }
+
+    /// Product of all purchased upgrades' boosts for a building (1.0 if none).
+    func buildingMultiplier(for buildingID: String) -> Double {
+        guard let upgrades = upgradesByBuilding[buildingID] else { return 1 }
+        return upgrades.reduce(1) { product, upgrade in
+            purchasedUpgradeIDs.contains(upgrade.id) ? product * upgrade.multiplierBoost : product
+        }
+    }
+
+    /// Global production multiplier from achieved milestones (1.0 + Σ bonuses).
+    var globalMultiplier: Double {
+        1.0 + config.milestones.reduce(0) { sum, milestone in
+            isAchieved(milestone) ? sum + milestone.globalMultiplierBonus : sum
+        }
+    }
+
+    /// Total number of buildings owned across all tiers.
+    var totalBuildingCount: Int {
+        buildingCounts.values.reduce(0, +)
+    }
+
+    // MARK: - Milestones
+
+    /// Whether a milestone's condition is currently satisfied.
+    func isAchieved(_ milestone: Milestone) -> Bool {
+        switch milestone.condition {
+        case .totalBuildings(let n):
+            return totalBuildingCount >= n
+        case .buildingCount(let buildingID, let n):
+            return count(of: buildingID) >= n
+        case .moonRestoration(let fraction):
+            return moonRestoration >= fraction
+        case .lifetimeEarned(let resource, let value):
+            return (currencyLifetimeEarned[resource] ?? 0) >= value
+        }
+    }
+
+    /// All currently-achieved milestones.
+    var achievedMilestones: [Milestone] {
+        config.milestones.filter(isAchieved)
+    }
+
+    // MARK: - Upgrades
+
+    /// Whether a building owns enough copies to reveal this upgrade.
+    func isUpgradeUnlocked(_ upgrade: Upgrade) -> Bool {
+        count(of: upgrade.buildingID) >= upgrade.requiredBuildingCount
+    }
+
+    func isUpgradePurchased(_ upgrade: Upgrade) -> Bool {
+        purchasedUpgradeIDs.contains(upgrade.id)
+    }
+
+    /// Unlocked, unpurchased, and currently affordable.
+    func canBuyUpgrade(_ upgrade: Upgrade) -> Bool {
+        isUpgradeUnlocked(upgrade)
+            && !isUpgradePurchased(upgrade)
+            && amount(of: upgrade.costCurrency) >= upgrade.cost
+    }
+
+    /// Unlocked but not yet purchased (the engine API `getAvailableUpgrades()`).
+    func availableUpgrades() -> [Upgrade] {
+        config.upgrades.filter { isUpgradeUnlocked($0) && !isUpgradePurchased($0) }
+    }
+
+    /// Available upgrades the player can afford right now.
+    func affordableUpgrades() -> [Upgrade] {
+        availableUpgrades().filter { amount(of: $0.costCurrency) >= $0.cost }
+    }
+
+    /// Purchase an upgrade if affordable. Returns whether it succeeded.
+    @discardableResult
+    func purchaseUpgrade(_ upgrade: Upgrade) -> Bool {
+        guard canBuyUpgrade(upgrade) else { return false }
+        guard spend(upgrade.costCurrency, upgrade.cost) else { return false }
+        purchasedUpgradeIDs.insert(upgrade.id)
+        return true
+    }
+
+    // MARK: - Dream Orders
+
+    /// The upcoming order board (the first element is the active order).
+    var activeOrders: [DreamOrder] {
+        orderGenerator.activeBoard(fulfilledCount: ordersFulfilled, size: config.activeOrderCount)
+    }
+
+    /// The single order the player can fulfil next.
+    var activeOrder: DreamOrder? {
+        orderGenerator.order(at: ordersFulfilled)
+    }
+
+    /// Whether the active order can be fulfilled with current resources.
+    func canFulfill(_ order: DreamOrder) -> Bool {
+        order.index == ordersFulfilled && amount(of: order.requestResource) >= order.requestAmount
+    }
+
+    /// Fulfil the active order: spend the request, grant the reward, advance the
+    /// chain. Returns whether it succeeded.
+    @discardableResult
+    func fulfillOrder(_ order: DreamOrder) -> Bool {
+        guard canFulfill(order) else { return false }
+        guard spend(order.requestResource, order.requestAmount) else { return false }
+        credit(order.rewardResource, order.rewardAmount)
+        ordersFulfilled += 1
+        return true
     }
 
     // MARK: - Mutations
@@ -203,6 +348,11 @@ final class GameState: ObservableObject {
         bestRunMoonlightRestored = max(bestRunMoonlightRestored, moonRestoration)
     }
 
+    /// Whether the player can buy one more of the given tier (engine API alias).
+    func canBuyBuilding(_ tier: ProductionTier) -> Bool {
+        canAfford(tier)
+    }
+
     /// Purchase one building of the given tier if affordable. Returns whether
     /// the purchase succeeded.
     @discardableResult
@@ -227,6 +377,7 @@ final class GameState: ObservableObject {
             currencyAmounts[resource] = 0
         }
         buildingCounts = [:]
+        purchasedUpgradeIDs.removeAll()  // building upgrades are run-scoped
         moonRestoration = 0
         credit(.lucidShards, shardsEarned)
         totalLucidShardsEarned += shardsEarned
@@ -248,6 +399,7 @@ final class GameState: ObservableObject {
             currencyLifetimeEarned: encodeCurrencies(currencyLifetimeEarned),
             buildingCounts: buildingCounts,
             purchasedUpgradeIDs: Array(purchasedUpgradeIDs),
+            ordersFulfilled: ordersFulfilled,
             moonRestoration: moonRestoration,
             resetCount: resetCount,
             totalLucidShardsEarned: totalLucidShardsEarned,

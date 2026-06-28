@@ -87,6 +87,36 @@ final class AppContainer: ObservableObject {
         return success
     }
 
+    /// Buy a building upgrade. Returns whether the purchase succeeded.
+    @discardableResult
+    func purchaseUpgrade(_ upgrade: Upgrade) -> Bool {
+        let success = gameState.purchaseUpgrade(upgrade)
+        if success {
+            haptics.impact(.medium)
+            audio.playSFX("upgrade")
+            analytics.log(.upgradePurchased(upgradeID: upgrade.id))
+            Task { await save() }
+        } else {
+            haptics.warning()
+        }
+        return success
+    }
+
+    /// Fulfil the given Dream Order. Returns whether it succeeded.
+    @discardableResult
+    func fulfillOrder(_ order: DreamOrder) -> Bool {
+        let success = gameState.fulfillOrder(order)
+        if success {
+            haptics.success()
+            audio.playSFX("order_complete")
+            analytics.log(.orderFulfilled(index: order.index, rewardAmount: order.rewardAmount))
+            Task { await save() }
+        } else {
+            haptics.warning()
+        }
+        return success
+    }
+
     /// Whether a New Moon Reset is currently available.
     var canPrestige: Bool {
         prestigeCalculator.canPrestige(

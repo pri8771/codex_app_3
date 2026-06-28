@@ -6,6 +6,8 @@ enum AnalyticsEvent: Sendable {
     case appLaunched
     case offlineEarningsCollected(seconds: TimeInterval)
     case buildingPurchased(tierID: String, count: Int)
+    case upgradePurchased(upgradeID: String)
+    case orderFulfilled(index: Int, rewardAmount: Double)
     case prestigePerformed(resetCount: Int, shardsEarned: Double)
     case screenViewed(name: String)
 
@@ -14,6 +16,8 @@ enum AnalyticsEvent: Sendable {
         case .appLaunched: return "app_launched"
         case .offlineEarningsCollected: return "offline_earnings_collected"
         case .buildingPurchased: return "building_purchased"
+        case .upgradePurchased: return "upgrade_purchased"
+        case .orderFulfilled: return "order_fulfilled"
         case .prestigePerformed: return "prestige_performed"
         case .screenViewed: return "screen_viewed"
         }

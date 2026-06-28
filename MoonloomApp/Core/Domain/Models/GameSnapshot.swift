@@ -21,6 +21,9 @@ struct GameSnapshot: Codable, Sendable, Equatable {
     // MARK: Upgrades / flags
     var purchasedUpgradeIDs: [String]
 
+    // MARK: Orders
+    var ordersFulfilled: Int
+
     // MARK: Moon restoration & prestige
     var moonRestoration: Double
     var resetCount: Int
@@ -46,6 +49,7 @@ struct GameSnapshot: Codable, Sendable, Equatable {
             currencyLifetimeEarned: [ResourceType.whispers.rawValue: config.startingWhispers],
             buildingCounts: [:],
             purchasedUpgradeIDs: [],
+            ordersFulfilled: 0,
             moonRestoration: 0,
             resetCount: 0,
             totalLucidShardsEarned: 0,

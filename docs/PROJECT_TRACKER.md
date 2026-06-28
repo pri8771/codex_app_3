@@ -13,6 +13,14 @@
 > and audio/analytics stubs, with XCTest suites. Epics E002–E007 are now partly
 > complete (see per-epic status). Build/test were authored but not executed in
 > the Linux authoring session — run on macOS + Xcode 16.
+>
+> **Phase 2 milestone (2026-06-28, MOONLOOM-PROMPT-002):** the core idle loop is
+> now playable — full multiplier-stacked production, a building **upgrade**
+> system (per-building ×2 tiers), **milestones** driving a global multiplier and
+> the Dreamthread collection unlock, a **Dream Orders** quest/reward system, a
+> **guided next-step** banner for the first five minutes, and reward/upgrade
+> visual feedback. E004 complete; new test suites added (upgrades, milestones,
+> orders, economy simulation).
 
 ---
 
@@ -82,7 +90,7 @@ artwork pending (E009). T002-06: deferred to monetization phase (E008).*
 | T003-03 | PrestigeRecord @Model | ✅ | 2 | 2026-07-04 | 2026-07-05 | T002-05 |
 | T003-04 | AchievementRecord @Model | 📅 | 2 | 2026-07-05 | 2026-07-05 | T002-05 |
 | T003-05 | SettingsRecord @Model | ✅ | 2 | 2026-07-05 | 2026-07-06 | T002-05 |
-| T003-06 | UpgradeRecord @Model | 📅 | 2 | 2026-07-06 | 2026-07-06 | T003-01 |
+| T003-06 | UpgradeRecord @Model | ✅ | 2 | 2026-07-06 | 2026-07-06 | T003-01 |
 | T003-07 | CosmeticRecord @Model | 📅 | 2 | 2026-07-06 | 2026-07-07 | T002-05 |
 | T003-08 | Unit tests for all models | 🔄 | 3 | 2026-07-07 | 2026-07-08 | T003-07 |
 
@@ -93,20 +101,20 @@ deferred to their feature phases.*
 
 ## EPIC E004: Production Engine
 
-**Status:** 🔄 In Progress | **Est SP:** 26
+**Status:** ✅ Complete | **Est SP:** 26
 
 | Task ID | Task | Status | Est SP | Est Start | Est End | Dependencies |
 |---------|------|--------|--------|-----------|---------|--------------|
 | T004-01 | ProductionEngine actor (tick loop) | ✅ | 5 | 2026-07-08 | 2026-07-10 | E003 |
 | T004-02 | Building cost formula (exponential scaling) | ✅ | 3 | 2026-07-10 | 2026-07-11 | T004-01 |
-| T004-03 | Upgrade multiplier system | 📅 | 5 | 2026-07-11 | 2026-07-13 | T004-02 |
-| T004-04 | Global multiplier system | 🔄 | 3 | 2026-07-13 | 2026-07-14 | T004-03 |
+| T004-03 | Upgrade multiplier system | ✅ | 5 | 2026-07-11 | 2026-07-13 | T004-02 |
+| T004-04 | Global multiplier system | ✅ | 3 | 2026-07-13 | 2026-07-14 | T004-03 |
 | T004-05 | Number formatting (K/M/B/T notation) | ✅ | 2 | 2026-07-14 | 2026-07-14 | T004-01 |
 | T004-06 | Prestige multiplier integration | ✅ | 3 | 2026-07-14 | 2026-07-15 | T004-04 |
-| T004-07 | Unit tests for production engine | 🔄 | 5 | 2026-07-15 | 2026-07-17 | T004-06 |
+| T004-07 | Unit tests for production engine | ✅ | 5 | 2026-07-15 | 2026-07-17 | T004-06 |
 
-*Prestige multiplier wired into production. Per-building upgrade multipliers
-(T004-03) and richer global multipliers (T004-04) land in MOONLOOM-PROMPT-002.*
+*Phase 2: per-building upgrades + milestone-driven global multiplier implemented;
+full multiplier stack verified by `EconomySimulationTests` / `UpgradeAndMilestoneTests`.*
 
 ---
 
@@ -147,7 +155,7 @@ deferred to their feature phases.*
 | Task ID | Task | Status | Est SP | Est Start | Est End | Dependencies |
 |---------|------|--------|--------|-----------|---------|--------------|
 | T007-01 | Main Factory Screen (12 building rows) | ✅ | 8 | 2026-08-01 | 2026-08-05 | E004 |
-| T007-02 | Building upgrade panel | 📅 | 5 | 2026-08-05 | 2026-08-07 | T007-01 |
+| T007-02 | Building upgrade panel | ✅ | 5 | 2026-08-05 | 2026-08-07 | T007-01 |
 | T007-03 | Moon restoration progress bar/visual | ✅ | 5 | 2026-08-07 | 2026-08-09 | E006 |
 | T007-04 | Currency display HUD | ✅ | 3 | 2026-08-09 | 2026-08-10 | T007-01 |
 | T007-05 | Upgrade tree screen (Lunar Codex) | 📅 | 5 | 2026-08-10 | 2026-08-12 | E006 |
@@ -237,7 +245,7 @@ deferred to their feature phases.*
 | E001 | Documentation | 21 | ✅ | 2026-06-27 | 2026-06-27 |
 | E002 | Xcode Setup | 10 | 🔄 | 2026-07-01 | 2026-07-03 |
 | E003 | Data Models | 18 | 🔄 | 2026-07-03 | 2026-07-08 |
-| E004 | Production Engine | 26 | 🔄 | 2026-07-08 | 2026-07-17 |
+| E004 | Production Engine | 26 | ✅ | 2026-07-08 | 2026-07-17 |
 | E005 | Offline Earnings | 13 | 🔄 | 2026-07-17 | 2026-07-22 |
 | E006 | Prestige System | 21 | 🔄 | 2026-07-22 | 2026-07-30 |
 | E007 | SwiftUI Interface | 55 | 🔄 | 2026-08-01 | 2026-08-23 |

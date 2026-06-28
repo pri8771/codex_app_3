@@ -157,4 +157,83 @@ struct EconomyConfig: Sendable {
 
     /// Production tick interval in seconds (`TECHNICAL_PRD.md` §4).
     let tickInterval: Double = 0.1
+
+    // MARK: - Upgrades (per-building multipliers)
+
+    /// Building counts at which successive upgrades for a tier unlock.
+    let upgradeUnlockThresholds: [Int] = [10, 25, 50, 100]
+    /// Output multiplier each purchased upgrade applies to its building.
+    let upgradeMultiplierBoost: Double = 2.0
+    /// Cost scaling for an upgrade relative to its building's base cost.
+    let upgradeCostFactor: Double = 12
+
+    /// Every upgrade across all 12 tiers, derived from `tiers` (so all economy
+    /// values remain centralised — no scattered literals).
+    var upgrades: [Upgrade] {
+        tiers.flatMap { tier -> [Upgrade] in
+            upgradeUnlockThresholds.enumerated().map { offset, threshold in
+                Upgrade(
+                    id: "\(tier.id)_mk\(offset + 2)",
+                    buildingID: tier.id,
+                    name: "\(tier.name) Mk\(offset + 2)",
+                    detail: "Doubles \(tier.name) output (requires \(threshold)).",
+                    requiredBuildingCount: threshold,
+                    cost: tier.baseCost * Double(threshold) * upgradeCostFactor,
+                    costCurrency: tier.costCurrency,
+                    multiplierBoost: upgradeMultiplierBoost
+                )
+            }
+        }
+    }
+
+    func upgrades(forBuilding buildingID: String) -> [Upgrade] {
+        upgrades.filter { $0.buildingID == buildingID }
+    }
+
+    func upgrade(id: String) -> Upgrade? {
+        upgrades.first { $0.id == id }
+    }
+
+    // MARK: - Milestones (global multipliers + collection unlocks)
+
+    /// Progression milestones. Building-count milestones reward growing your
+    /// factory; the restoration milestone rewards lasting progress.
+    var milestones: [Milestone] {
+        [
+            Milestone(id: "ms_buildings_10", name: "Cottage Industry",
+                      detail: "Own 10 buildings.",
+                      condition: .totalBuildings(10), globalMultiplierBonus: 0.10),
+            Milestone(id: "ms_buildings_25", name: "Dream Workshop",
+                      detail: "Own 25 buildings.",
+                      condition: .totalBuildings(25), globalMultiplierBonus: 0.15),
+            Milestone(id: "ms_buildings_50", name: "Dream Foundry",
+                      detail: "Own 50 buildings.",
+                      condition: .totalBuildings(50), globalMultiplierBonus: 0.25),
+            Milestone(id: "ms_spindle_1", name: "First Thread",
+                      detail: "Spin your first Dreamthread Spindle.",
+                      condition: .buildingCount(buildingID: "dreamthread_spindle", count: 1),
+                      globalMultiplierBonus: 0.10),
+            Milestone(id: "ms_moonlight_1k", name: "Glimmer",
+                      detail: "Earn 1K lifetime Moonlight.",
+                      condition: .lifetimeEarned(.moonlight, 1_000), globalMultiplierBonus: 0.20),
+            Milestone(id: "ms_restore_25", name: "Crescent",
+                      detail: "Restore the moon to 25%.",
+                      condition: .moonRestoration(0.25), globalMultiplierBonus: 0.25)
+        ]
+    }
+
+    // MARK: - Dream Orders
+
+    /// Number of upcoming orders shown on the board at once.
+    let activeOrderCount: Int = 3
+    /// Request amount for the first order.
+    let orderBaseAmount: Double = 50
+    /// Exponential growth of successive order request amounts.
+    let orderAmountGrowth: Double = 1.8
+    /// Stardust reward for the first order.
+    let orderBaseReward: Double = 3
+    /// Additional Stardust reward per successive order.
+    let orderRewardStep: Double = 2
+    /// Which resource each order requests, cycling by order index.
+    let orderRequestCycle: [ResourceType] = [.whispers, .whispers, .dreamthread, .moonlight]
 }

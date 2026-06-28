@@ -14,9 +14,7 @@ struct BuildingRowView: View {
     private var count: Int { gameState.count(of: tier.id) }
     private var nextCost: Double { gameState.nextCost(for: tier) }
     private var canAfford: Bool { gameState.canAfford(tier) }
-    private var outputPerSecond: Double {
-        Double(count) * tier.baseOutputPerSecond * gameState.prestigeMultiplier
-    }
+    private var outputPerSecond: Double { gameState.outputPerSecond(forTier: tier) }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -35,6 +33,8 @@ struct BuildingRowView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
                         .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: count)
                 }
                 Text(tier.summary)
                     .font(.caption)

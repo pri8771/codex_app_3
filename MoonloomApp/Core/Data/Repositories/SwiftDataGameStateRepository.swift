@@ -12,6 +12,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
     func load() async -> GameSnapshot? {
         let currencies = (try? modelContext.fetch(FetchDescriptor<CurrencyRecord>())) ?? []
         let buildings = (try? modelContext.fetch(FetchDescriptor<BuildingRecord>())) ?? []
+        let upgrades = (try? modelContext.fetch(FetchDescriptor<UpgradeRecord>())) ?? []
         let prestige = (try? modelContext.fetch(FetchDescriptor<PrestigeRecord>()))?.first
         let settings = (try? modelContext.fetch(FetchDescriptor<SettingsRecord>()))?.first
 
@@ -30,12 +31,15 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             counts[record.id] = record.count
         }
 
+        let purchasedUpgrades = upgrades.filter(\.isPurchased).map(\.id)
+
         return GameSnapshot(
             schemaVersion: prestige.schemaVersion,
             currencyAmounts: amounts,
             currencyLifetimeEarned: lifetime,
             buildingCounts: counts,
-            purchasedUpgradeIDs: prestige.purchasedUpgradeIDs,
+            purchasedUpgradeIDs: purchasedUpgrades,
+            ordersFulfilled: prestige.ordersFulfilled,
             moonRestoration: prestige.currentMoonRestoration,
             resetCount: prestige.resetCount,
             totalLucidShardsEarned: prestige.totalLucidShardsEarned,
@@ -95,6 +99,25 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             }
         }
 
+        // Upgrades (upsert by id). Stores the purchased set; rows for upgrades no
+        // longer purchased (e.g. cleared by prestige) are marked unpurchased.
+        let purchasedSet = Set(snapshot.purchasedUpgradeIDs)
+        let existingUpgrades = (try? modelContext.fetch(FetchDescriptor<UpgradeRecord>())) ?? []
+        var upgradeByID = Dictionary(existingUpgrades.map { ($0.id, $0) }) { first, _ in first }
+        for record in existingUpgrades where record.isPurchased && !purchasedSet.contains(record.id) {
+            record.isPurchased = false
+        }
+        for id in purchasedSet {
+            if let record = upgradeByID[id] {
+                record.isPurchased = true
+            } else {
+                let buildingID = config.upgrade(id: id)?.buildingID ?? ""
+                let record = UpgradeRecord(id: id, buildingID: buildingID, isPurchased: true)
+                modelContext.insert(record)
+                upgradeByID[id] = record
+            }
+        }
+
         // Prestige / run progress (single row).
         let prestige = (try? modelContext.fetch(FetchDescriptor<PrestigeRecord>()))?.first
         if let prestige {
@@ -103,7 +126,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             prestige.permanentUpgrades = snapshot.permanentUpgradeIDs
             prestige.bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
             prestige.currentMoonRestoration = snapshot.moonRestoration
-            prestige.purchasedUpgradeIDs = snapshot.purchasedUpgradeIDs
+            prestige.ordersFulfilled = snapshot.ordersFulfilled
             prestige.schemaVersion = snapshot.schemaVersion
         } else {
             modelContext.insert(PrestigeRecord(
@@ -113,7 +136,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
                 bestRunMoonlightRestored: snapshot.bestRunMoonlightRestored,
                 lastResetDate: nil,
                 currentMoonRestoration: snapshot.moonRestoration,
-                purchasedUpgradeIDs: snapshot.purchasedUpgradeIDs,
+                ordersFulfilled: snapshot.ordersFulfilled,
                 schemaVersion: snapshot.schemaVersion
             ))
         }
@@ -144,6 +167,7 @@ actor SwiftDataGameStateRepository: GameStateRepository {
     func deleteAll() async {
         try? modelContext.delete(model: CurrencyRecord.self)
         try? modelContext.delete(model: BuildingRecord.self)
+        try? modelContext.delete(model: UpgradeRecord.self)
         try? modelContext.delete(model: PrestigeRecord.self)
         try? modelContext.delete(model: SettingsRecord.self)
         try? modelContext.save()

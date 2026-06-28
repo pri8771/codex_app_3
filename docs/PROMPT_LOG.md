@@ -376,7 +376,7 @@ cosmetic theming.
 ---
 
 ### MOONLOOM-PROMPT-002: Core Idle Economy Engine
-**Date:** 2026-06-27 | **Phase:** Implementation | **Tool:** Claude Code | **Epic:** E004 | **Status:** 📅 Queued
+**Date:** 2026-06-28 | **Phase:** Implementation | **Tool:** Claude Code | **Epic:** E004 | **Status:** ✅ Used
 
 ```
 Implement Phase 2 for Moonloom: the core idle economy engine.
@@ -452,6 +452,47 @@ Acceptance criteria:
 - No production logic in SwiftUI views.
 - Trackers updated.
 ```
+
+**Refined brief (2026-06-28):** Phase 2 was run with an expanded, playability-
+focused brief — prove "is the idle reward loop satisfying?" by building ONE
+complete loop: auto-generation, a production station + upgrade path, an
+order/request system, a milestone-driven collection unlock, offline earnings
+display, guided first-5-minutes progression, and reward/upgrade visual feedback.
+(Monetization, multi-prestige, dozens of buildings, and live events were
+explicitly out of scope.)
+
+**Outcome (2026-06-28):** Implemented on top of the Phase 1 foundation.
+
+Economy engine (UI-independent, in `Core/Domain`):
+- Full multiplier-stacked production: `count × baseCPS × upgradeMult ×
+  globalMult × prestigeMult` (`GameState.outputPerSecond(forTier:)`).
+- **Upgrades**: `Upgrade` model + `EconomyConfig.upgrades` (4 per tier,
+  unlock at 10/25/50/100 owned, ×2 each, cost from config). `GameState`
+  purchase/unlock/affordability APIs; `UpgradeRecord` persistence.
+- **Milestones**: `Milestone` model + catalog driving the global multiplier and
+  the Dreamthread "collection unlock"; `isAchieved`/`globalMultiplier`.
+- **Dream Orders**: `DreamOrder` + deterministic `OrderGenerator` (sequential
+  quest chain, Stardust rewards); `fulfillOrder` spends request → grants reward
+  → advances the chain; `ordersFulfilled` persisted.
+- **Guidance**: `ProgressionGuide.nextObjective()` gives the single best next
+  step for the first five minutes.
+- Engine APIs added: `canBuyBuilding/canBuyUpgrade`, `availableUpgrades`,
+  `calculateProductionRates`, serialize/deserialize via `GameSnapshot`.
+
+UI (live, wired to the engine):
+- `FactoryView` shows live production, global multiplier, a guidance banner, and
+  Orders/Upgrades entry points with "ready" badges. `BuildingRowView` uses the
+  full rate and animates counts.
+- `UpgradesView` (before → after rate feedback), `OrdersView` (progress + reward
+  burst animation), `RewardBurstView` celebration.
+
+Tests added: `UpgradeAndMilestoneTests`, `OrderTests`, `EconomySimulationTests`
+(initial state, single-tick generation, deterministic ticks, no NaN/Infinity,
+progression through the first 3 tiers, multiplier stacking, snapshot round-trip).
+
+Verification note: same as BUG-001 — authored on Linux without an Xcode
+toolchain, so `xcodebuild build`/`test` were not executed here; run on macOS +
+Xcode 16.
 
 ---
 
@@ -829,10 +870,10 @@ Return:
 | Ideation (ChatGPT) | 2 | 2 | 0 |
 | Architecture | 2 | 0 | 2 |
 | Claude Code Universal | 1 | 0 | 1 |
-| Claude Code Implementation | 8 | 1 | 7 |
+| Claude Code Implementation | 8 | 2 | 6 |
 | Claude Code Audit | 1 | 0 | 1 |
-| **Total** | **14** | **3** | **11** |
+| **Total** | **14** | **4** | **10** |
 
 ---
 
-*Last updated: 2026-06-28 — MOONLOOM-PROMPT-001 (foundation) implemented*
+*Last updated: 2026-06-28 — MOONLOOM-PROMPT-002 (core idle loop) implemented*

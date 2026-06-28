@@ -5,8 +5,8 @@ import SwiftData
 ///
 /// Extends the `TECHNICAL_PRD.md` §3 definition with two foundation fields:
 /// `currentMoonRestoration` (the in-progress run's restoration, 0...1) and
-/// `purchasedUpgradeIDs` (run-scoped upgrade flags). A single row exists per
-/// save.
+/// `ordersFulfilled` (Dream Order chain progress). Purchased building upgrades
+/// live in `UpgradeRecord`. A single row exists per save.
 @Model
 final class PrestigeRecord {
     var resetCount: Int
@@ -15,7 +15,7 @@ final class PrestigeRecord {
     var bestRunMoonlightRestored: Double
     var lastResetDate: Date?
     var currentMoonRestoration: Double
-    var purchasedUpgradeIDs: [String]
+    var ordersFulfilled: Int
     var schemaVersion: Int
 
     init(
@@ -25,7 +25,7 @@ final class PrestigeRecord {
         bestRunMoonlightRestored: Double,
         lastResetDate: Date?,
         currentMoonRestoration: Double,
-        purchasedUpgradeIDs: [String],
+        ordersFulfilled: Int,
         schemaVersion: Int
     ) {
         self.resetCount = resetCount
@@ -34,7 +34,7 @@ final class PrestigeRecord {
         self.bestRunMoonlightRestored = bestRunMoonlightRestored
         self.lastResetDate = lastResetDate
         self.currentMoonRestoration = currentMoonRestoration
-        self.purchasedUpgradeIDs = purchasedUpgradeIDs
+        self.ordersFulfilled = ordersFulfilled
         self.schemaVersion = schemaVersion
     }
 }
