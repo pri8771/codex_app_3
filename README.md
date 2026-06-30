@@ -2,14 +2,20 @@
 
 > *"While the world sleeps, your factory dreams."*
 
+_Updated 2026-06-30 to match the shipped product and launch scope. See [LAUNCH_READINESS.md](LAUNCH_READINESS.md)._
+
 ## Overview
 
-**Moonloom: Idle Dream Factory** is a premium iOS idle/incremental game where you build and manage an ever-growing factory that harvests whispers from sleeping towns, spins them into dreamthread, weaves dreams, and ships them to the moon via moth couriers — gradually restoring the moon's faded light.
+**Moonloom: Idle Dream Factory** is a cozy, offline-first iOS idle/incremental game where a small dream factory harvests whispers from sleeping towns, spins them into dreamthread, weaves dreams, and restores the moon's faded light — and keeps producing while the app is closed.
 
-**Genre:** Idle / Incremental
+> **Status: pre-build (docs-only).** This repository currently contains only documentation — there is no Xcode project, Swift Package, source code, or tests yet. [`LAUNCH_READINESS.md`](LAUNCH_READINESS.md) is the authoritative v1 build-to spec.
+>
+> **v1 is deliberately scoped down** to a provable economy prototype — **3 stations, 1 resource chain (whispers → dreamthread → 1 woven dream), 1 soft currency, a real offline-earnings calculation, and 1 restoration milestone** — built first as a headless, testable Swift simulation before any SwiftUI. The 12-tier / 5-currency / prestige / subscription product described below is the **deferred long-term vision**, not the v1 build target. See LAUNCH_READINESS.md §3 for the full out-of-scope list.
+
+**Genre:** Idle / Incremental (cozy)
 **Platform:** iOS 17.0+
-**Engine:** SwiftUI + SwiftData + StoreKit 2
-**Status:** 🔴 Pre-Development (Documentation Phase)
+**v1 tech:** Swift + SwiftUI; economy ships first as a pure-Swift `MoonloomCore` package with XCTest. SwiftData and StoreKit 2 are **deferred** (not in v1).
+**Status:** 🔴 Pre-Build — Documentation Phase (no code yet)
 
 ---
 
@@ -27,7 +33,9 @@ Sleeping Towns → Whispers → Dreamthread → Dreams → Moth Couriers → Moo
 
 ---
 
-## 🏗️ Production Tiers (12+)
+## 🏗️ Production Tiers — Long-Term Vision (DEFERRED, not v1)
+
+> **v1 implements only the first three stations as one coupled chain:** Whisper Nets (whispers) → Dreamthread Spindles (whispers → dreamthread) → a Dream Loom (dreamthread → woven dream). The full 12-tier ladder below is the deferred long-term design; tiers 4–12 are **out of scope for v1** (see LAUNCH_READINESS.md §3).
 
 | Tier | Building | Produces |
 |------|----------|---------|
@@ -46,7 +54,9 @@ Sleeping Towns → Whispers → Dreamthread → Dreams → Moth Couriers → Moo
 
 ---
 
-## 💎 Currencies
+## 💎 Currencies — Long-Term Vision (DEFERRED, not v1)
+
+> **v1 uses ONE soft currency** plus the chain's intermediate resources (whispers, dreamthread, woven dreams). Moonlight-as-currency, Stardust, and Lucid Shards are **deferred**.
 
 | Currency | Type | Source |
 |----------|------|--------|
@@ -58,7 +68,9 @@ Sleeping Towns → Whispers → Dreamthread → Dreams → Moth Couriers → Moo
 
 ---
 
-## 🌑 Prestige: New Moon Reset
+## 🌑 Prestige: New Moon Reset — Long-Term Vision (DEFERRED, not v1)
+
+> **Prestige is explicitly deferred.** It only earns its place once the base loop is satisfying enough that resetting feels like a worthwhile trade. v1 ships a single restoration milestone and no reset.
 
 When you restore enough of the moon, you can trigger a **New Moon Reset**:
 - Factory resets to beginning
@@ -70,19 +82,20 @@ When you restore enough of the moon, you can trigger a **New Moon Reset**:
 
 ## 📱 Tech Stack
 
-- **Language:** Swift 5.9
-- **UI Framework:** SwiftUI (iOS 17+)
-- **Data:** SwiftData
-- **Monetization:** StoreKit 2 (IAP)
-- **Architecture:** Clean Architecture + MVVM
+- **Language:** Swift 5.9+
+- **UI Framework:** SwiftUI (iOS 17+) — added after the v1 economy is tuned
+- **v1 economy:** pure-Swift `MoonloomCore` package (deterministic, UI-independent) + XCTest
+- **Data (v1):** local `Codable` save; **SwiftData deferred** until the model is stable
+- **Monetization (v1):** none; **StoreKit 2 deferred**
+- **Architecture:** keep simulation logic out of views; inject time for testable offline calc
 - **No Third-Party Dependencies** — 100% Apple frameworks
-- **Offline-First:** Full gameplay without network connection
+- **Offline-First:** full gameplay without any network connection
 
 ---
 
-## 💰 Monetization
+## 💰 Monetization — DEFERRED (not in v1)
 
-All monetization is cosmetic or convenience. No pay-to-win.
+> **v1 ships free with no IAP** — the loop must earn trust before any monetization is added. When monetization arrives it will be **cozy-compatible only**: time-skips and cosmetic skins. Never energy gates, punitive timers, loot boxes, forced ads, or FOMO events. The catalog below is the deferred long-term plan.
 
 - **Dream Packs** — cosmetic factory themes
 - **Moth Skins** — visual courier variants
@@ -95,8 +108,9 @@ All monetization is cosmetic or convenience. No pay-to-win.
 ## 📂 Repository Structure
 
 ```
-codex_app_3/
+moonloom/
 ├── README.md
+├── LAUNCH_READINESS.md          # Authoritative v1 build-to spec (start here)
 └── docs/
     ├── prd/
     │   ├── TECHNICAL_PRD.md
@@ -117,13 +131,15 @@ codex_app_3/
 
 ## 🗓️ Timeline
 
+> The dates below are the original aspirational plan tied to the full 12-tier product. The **near-term v1 path** is the economy-prototype build order in LAUNCH_READINESS.md §8: scaffold `MoonloomCore`, build and test F1–F8, and tune the curve in the headless harness before any UI. Beta/launch dates re-baseline after the prototype validates the loop.
+
 | Milestone | Target Date |
 |-----------|-------------|
 | Documentation Complete | Q2 2026 |
-| MVP Development | Q3 2026 |
-| Private Beta | Q4 2026 |
-| Public Beta | Q1 2027 |
-| App Store Launch | Q1 2027 |
+| v1 economy prototype (headless, tested) | TBD — next milestone |
+| MVP UI on top of validated economy | TBD |
+| Private Beta | TBD |
+| App Store Launch | TBD |
 
 ---
 
