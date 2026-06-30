@@ -1,0 +1,179 @@
+{
+  "identifier" : "6C9534D1-06F4-4F44-AADE-66A7891712E6",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "5B3EE57C-CF3E-4DE4-B424-9E343AA31EE2",
+      "localizations" : [
+        {
+          "description" : "A small pouch of premium Stardust.",
+          "displayName" : "50 Stardust",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.stardust_small",
+      "referenceName" : "Stardust Small",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "1A3F33F0-38C1-48DA-A136-3F416FFC9B57",
+      "localizations" : [
+        {
+          "description" : "A generous handful of Stardust.",
+          "displayName" : "175 Stardust",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.stardust_medium",
+      "referenceName" : "Stardust Medium",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "7.99",
+      "familyShareable" : false,
+      "internalID" : "E220AAF6-7926-441C-A123-36343930B4B0",
+      "localizations" : [
+        {
+          "description" : "A glittering trove of Stardust.",
+          "displayName" : "500 Stardust",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.stardust_large",
+      "referenceName" : "Stardust Large",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "4182673C-F5C8-4F3A-8B40-832C95BCD872",
+      "localizations" : [
+        {
+          "description" : "Recolor your factory in cool starlight.",
+          "displayName" : "Celestial Theme",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.dream_pack_celestial",
+      "referenceName" : "Celestial Theme",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "6413EDA4-8F41-4D9A-B38F-FF933B722415",
+      "localizations" : [
+        {
+          "description" : "Warm, glowing factory aesthetic.",
+          "displayName" : "Ember Theme",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.dream_pack_ember",
+      "referenceName" : "Ember Theme",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "DD3EEA4A-7AE7-408E-A6D1-8236D3C6974E",
+      "localizations" : [
+        {
+          "description" : "Give your couriers golden wings.",
+          "displayName" : "Golden Moth",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.moth_skin_golden",
+      "referenceName" : "Golden Moth",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "2CC6F7CE-FC02-4CA8-AC2C-14FEA2E57319",
+      "localizations" : [
+        {
+          "description" : "Sleek shadow-winged couriers.",
+          "displayName" : "Shadow Moth",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.moth_skin_shadow",
+      "referenceName" : "Shadow Moth",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "3.99",
+      "familyShareable" : false,
+      "internalID" : "C857CEB6-B4D5-462C-AE10-F29381CDFA2A",
+      "localizations" : [
+        {
+          "description" : "Raise the offline cap from 2h to 12h.",
+          "displayName" : "Offline Expansion",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moonloom.offline_expansion",
+      "referenceName" : "Offline Expansion",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6741000000",
+    "_developerTeamID" : "MOONLOOMDEV",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "EEBBAFB7-CEF1-4DA0-AC2D-977BB9AAA280",
+      "localizations" : [
+
+      ],
+      "name" : "Moonloom Pass",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "470C6E95-9C15-4F7D-83B3-C8CAA130A605",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "2x offline earnings, a 48h offline cap, and exclusive cosmetics.",
+              "displayName" : "Moonloom Pass",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.moonloom.pass_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Moonloom Pass",
+          "subscriptionGroupID" : "EEBBAFB7-CEF1-4DA0-AC2D-977BB9AAA280",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

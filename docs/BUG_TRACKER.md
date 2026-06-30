@@ -1,8 +1,8 @@
-# Bug Tracker — Moonloom: Idle Dream Factory (codex_app_3)
+# Bug Tracker — Moonloom: Idle Dream Factory (moonloom)
 
 **Game:** Moonloom: Idle Dream Factory
 **Platform:** iOS 17.0+
-**Last Updated:** 2026-06-29
+**Last Updated:** 2026-06-30
 
 ---
 
@@ -19,6 +19,19 @@
 ## Active Bugs
 
 No active P0/P1/P2 bugs are currently known on `codex/production-readiness`.
+The production build-out (MOONLOOM-PROMPT-009) builds clean and passes all 119
+tests on an iPhone 17 simulator.
+
+**Risks now mitigated by implementation:**
+- RISK-005 (stale subscription): `PurchaseManager` reconciles entitlements from
+  `Transaction.currentEntitlements` on every launch and on each transaction update.
+- RISK-006 (offline entitlement check): entitlements persist in `EntitlementRecord`
+  and drive gameplay offline-first, reconciled with StoreKit when available.
+- RISK-007 (notification while open): reminders are scheduled only on background
+  and cancelled on foreground.
+- RISK-008 (reset/tick race): `performPrestige` stops the engine before reset.
+- Corrupt store: `AppDatabase` now deletes a bad on-disk store and recreates it
+  fresh (durable) before falling back to in-memory.
 
 ---
 

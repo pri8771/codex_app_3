@@ -1,4 +1,4 @@
-# Project Tracker — Moonloom: Idle Dream Factory (codex_app_3)
+# Project Tracker — Moonloom: Idle Dream Factory (moonloom)
 
 **Game:** Moonloom: Idle Dream Factory
 **Platform:** iOS 17.0+
@@ -41,6 +41,20 @@
 > costs (a documented divergence from the PRD's multi-currency chain; canonical
 > tier names kept). Persistence schema extended (UpgradeRecord→level,
 > MilestoneRecord, PrestigeRecord.unlockedTierIDs).
+>
+> **Production build-out milestone (2026-06-30, MOONLOOM-PROMPT-009):** Phases
+> 5–8 + polish landed, taking the app to ~85% production ready. **Lunar Codex**
+> (10 permanent prestige upgrades, E006 T006-04/E007 T007-05); **38 achievements**
+> + evaluator (E003 T003-04/E007 T007-07); **daily login rewards**, **onboarding**
+> (T007-09), and **statistics** (T007-12); **StoreKit 2** PurchaseManager +
+> `Moonloom.storekit` + entitlement persistence + wired Shop (E008); **cosmetic
+> themes** that re-skin the app (T007-06/E009 partial); **local notifications**
+> (E005 T005-04); a programmatic **app icon** + **design system** (E009 partial);
+> **persistence v2** (Achievement/LunarCodex/Entitlement `@Model`s, lightweight
+> migration, hardened recovery); and an accessibility pass. Test suite grew from
+> 89 → **119 passing** tests. Economy decision **resolved**: single-Moonlight
+> economy is canonical. Remaining: real ASC products + sandbox-device IAP, final
+> audio/art, device/accessibility QA, Instruments, TestFlight.
 
 ---
 
@@ -64,7 +78,7 @@
 
 | Task ID | Task | Status | Est SP | Act SP | Est Start | Est End | Act Start | Act End | Dependencies |
 |---------|------|--------|--------|--------|-----------|---------|-----------|---------|--------------|
-| T001-01 | Create GitHub repo (codex_app_3) | ✅ | 1 | 1 | 2026-06-27 | 2026-06-27 | 2026-06-27 | 2026-06-27 | None |
+| T001-01 | Create GitHub repo (moonloom) | ✅ | 1 | 1 | 2026-06-27 | 2026-06-27 | 2026-06-27 | 2026-06-27 | None |
 | T001-02 | Create README.md | ✅ | 1 | 1 | 2026-06-27 | 2026-06-27 | 2026-06-27 | 2026-06-27 | T001-01 |
 | T001-03 | Write Technical PRD | ✅ | 3 | 3 | 2026-06-27 | 2026-06-27 | 2026-06-27 | 2026-06-27 | T001-01 |
 | T001-04 | Write Non-Technical PRD | ✅ | 2 | 2 | 2026-06-27 | 2026-06-27 | 2026-06-27 | 2026-06-27 | T001-03 |
@@ -274,12 +288,12 @@ and reduced-motion support (T007-13), plus the Moon Restoration biome-node flow
 | E002 | Xcode Setup | 10 | 🔄 | 2026-07-01 | 2026-07-03 |
 | E003 | Data Models | 18 | 🔄 | 2026-07-03 | 2026-07-08 |
 | E004 | Production Engine | 26 | ✅ | 2026-07-08 | 2026-07-17 |
-| E005 | Offline Earnings | 13 | 🔄 | 2026-07-17 | 2026-07-22 |
-| E006 | Prestige System | 21 | 🔄 | 2026-07-22 | 2026-07-30 |
-| E007 | SwiftUI Interface | 55 | 🔄 | 2026-08-01 | 2026-08-23 |
-| E008 | Monetization | 21 | 📅 | 2026-08-24 | 2026-08-30 |
-| E009 | Asset Production | 55 | 📅 | 2026-07-01 | 2026-08-07 |
-| E010 | QA & Testing | 21 | 📅 | 2026-09-01 | 2026-09-13 |
+| E005 | Offline Earnings | 13 | ✅ | 2026-07-17 | 2026-07-22 |
+| E006 | Prestige System | 21 | ✅ | 2026-07-22 | 2026-07-30 |
+| E007 | SwiftUI Interface | 55 | ✅ | 2026-08-01 | 2026-08-23 |
+| E008 | Monetization | 21 | ✅ | 2026-08-24 | 2026-08-30 |
+| E009 | Asset Production | 55 | 🔄 | 2026-07-01 | 2026-08-07 |
+| E010 | QA & Testing | 21 | 🔄 | 2026-09-01 | 2026-09-13 |
 | E011 | Beta & Launch | 21 | 📅 | 2026-10-15 | 2027-01-15 |
 | **TOTAL** | | **282** | | **2026-06-27** | **2027-01-15** |
 

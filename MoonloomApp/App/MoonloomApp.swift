@@ -22,6 +22,7 @@ struct MoonloomApp: App {
             RootView()
                 .environmentObject(container)
                 .environmentObject(container.gameState)
+                .environmentObject(container.purchaseManager)
                 .preferredColorScheme(.dark)
                 .task { await container.bootstrap() }
         }

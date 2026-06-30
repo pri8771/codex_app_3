@@ -21,6 +21,9 @@ final class AppContainer: ObservableObject {
     let offlineCalculator: OfflineEarningsCalculator
     let prestigeCalculator: PrestigeCalculator
     let milestoneService: MilestoneService
+    let purchaseManager: PurchaseManager
+    let notificationManager: NotificationManager
+    let dailyRewardCalculator: DailyRewardCalculator
 
     // Observable state
     @Published private(set) var gameState: GameState
@@ -31,6 +34,8 @@ final class AppContainer: ObservableObject {
     @Published var celebrationMessage: String?
     /// User-visible warning when persistence fails to load, save, or reset.
     @Published private(set) var persistenceWarning: String?
+    /// A daily-login reward available to claim (drives the daily-reward modal).
+    @Published var availableDailyClaim: DailyRewardCalculator.Claim?
 
     private var engine: ProductionEngine?
 
@@ -54,10 +59,34 @@ final class AppContainer: ObservableObject {
         self.analytics = AnalyticsService()
         self.offlineCalculator = OfflineEarningsCalculator(config: config)
         self.prestigeCalculator = PrestigeCalculator(config: config)
+        self.purchaseManager = PurchaseManager()
+        self.notificationManager = NotificationManager()
+        self.dailyRewardCalculator = DailyRewardCalculator(rewardSchedule: config.dailyRewardSchedule)
         self.gameState = GameState(
             config: config,
             snapshot: .newGame(config: config, now: timeProvider.now())
         )
+        wirePurchaseCallbacks()
+    }
+
+    /// Bridge StoreKit results into game state. Entitlements (cosmetics, offline
+    /// expansion, Pass) replace the active set; consumables (Stardust) are credited.
+    private func wirePurchaseCallbacks() {
+        purchaseManager.onEntitlementsChanged = { [weak self] productIDs in
+            guard let self else { return }
+            self.gameState.setEntitlements(productIDs)
+            Task { await self.save() }
+        }
+        purchaseManager.onConsumablePurchased = { [weak self] productID in
+            guard let self else { return }
+            if let amount = ProductCatalog.stardustAmount(for: productID) {
+                self.gameState.creditStardust(amount)
+                self.haptics.success()
+                self.audio.playSFX("order_complete")
+                self.analytics.log(.purchaseCompleted(productID: productID))
+            }
+            Task { await self.save() }
+        }
     }
 
     /// Load persisted state, credit offline earnings, and start the engine.
@@ -99,8 +128,14 @@ final class AppContainer: ObservableObject {
         analytics.log(.appLaunched)
         if gameState.isMusicEnabled { audio.startAmbientMusic() }
 
+        refreshDailyClaim(now: now)
+        evaluateAchievements()
+
         await startEngine()
         await save()
+
+        // Load the store catalogue + reconcile entitlements without blocking play.
+        Task { await loadStore() }
     }
 
     // MARK: - Player actions
@@ -125,6 +160,7 @@ final class AppContainer: ObservableObject {
     func unlockTier(_ tier: ProductionTier) -> Bool {
         let success = gameState.unlockTier(tier)
         if success {
+            evaluateAchievements()
             haptics.impact(.heavy)
             audio.playSFX("tier_unlock")
             analytics.log(.tierUnlocked(tierID: tier.id))
@@ -159,6 +195,7 @@ final class AppContainer: ObservableObject {
             haptics.success()
             audio.playSFX("order_complete")
             analytics.log(.orderFulfilled(index: order.index, rewardAmount: order.rewardAmount))
+            evaluateAchievements()
             Task { await save() }
         } else {
             haptics.warning()
@@ -173,6 +210,7 @@ final class AppContainer: ObservableObject {
         if success {
             haptics.success()
             audio.playSFX("moon_restore")
+            evaluateAchievements()
             Task { await save() }
         } else {
             haptics.warning()
@@ -209,6 +247,7 @@ final class AppContainer: ObservableObject {
         gameState.applyPrestige(shardsEarned: shards)
         analytics.log(.prestigePerformed(resetCount: gameState.resetCount, shardsEarned: shards))
         haptics.success()
+        evaluateAchievements()
         gameState.updateLastActive(timeProvider.now())
         await startEngine()
         await save()
@@ -252,15 +291,23 @@ final class AppContainer: ObservableObject {
         gameState.updateLastActive(timeProvider.now())
         audio.stopAmbientMusic()
         await save()
+        // Schedule the "your factory is busy" reminders while away.
+        if gameState.isNotificationsEnabled {
+            await notificationManager.scheduleOfflineReminders(
+                offlineCapHours: gameState.effectiveOfflineCapHours)
+        }
     }
 
-    /// Call when the app returns to the foreground: credit time spent away,
-    /// then resume ticking.
+    /// Call when the app returns to the foreground: cancel pending reminders,
+    /// credit time spent away, refresh the daily reward, then resume ticking.
     func handleForeground() async {
         guard isBootstrapped else { return }
+        notificationManager.cancelAll()
         let now = timeProvider.now()
         creditOfflineEarnings(since: gameState.lastActiveTimestamp, now: now)
         gameState.updateLastActive(now)
+        refreshDailyClaim(now: now)
+        evaluateAchievements()
         if gameState.isMusicEnabled { audio.startAmbientMusic() }
         await startEngine()
         await save()
@@ -271,9 +318,11 @@ final class AppContainer: ObservableObject {
     private func creditOfflineEarnings(since lastActive: Date, now: Date) {
         let result = offlineCalculator.calculate(
             perTier: gameState.perTierOutputPerSecond(),
-            capHours: gameState.offlineEarningCapHours,
+            capHours: gameState.effectiveOfflineCapHours,
             lastActive: lastActive,
-            now: now
+            now: now,
+            efficiency: gameState.effectiveOfflineEfficiency,
+            multiplier: gameState.offlineEntitlementMultiplier
         )
         guard result.hasEarnings else { return }
         gameState.applyOfflineEarnings(result.earnings)
@@ -281,10 +330,124 @@ final class AppContainer: ObservableObject {
         analytics.log(.offlineEarningsCollected(seconds: result.creditedSeconds))
     }
 
+    // MARK: - Achievements
+
+    /// Evaluate achievements; celebrate and persist anything newly unlocked.
+    private func evaluateAchievements() {
+        let newly = gameState.evaluateAchievements()
+        guard !newly.isEmpty else { return }
+        haptics.success()
+        audio.playSFX("milestone")
+        if let top = newly.max(by: { $0.stardustReward < $1.stardustReward }) {
+            celebrationMessage = "Achievement: \(top.name)"
+        }
+        analytics.log(.achievementsUnlocked(count: newly.count))
+        Task { await save() }
+    }
+
+    // MARK: - Daily reward
+
+    private func refreshDailyClaim(now: Date) {
+        availableDailyClaim = gameState.availableDailyClaim(now: now, calculator: dailyRewardCalculator)
+    }
+
+    /// Claim the available daily reward. Returns whether a reward was granted.
+    @discardableResult
+    func claimDailyReward() async -> Bool {
+        let now = timeProvider.now()
+        guard let claim = gameState.availableDailyClaim(now: now, calculator: dailyRewardCalculator) else {
+            return false
+        }
+        gameState.applyDailyClaim(claim, now: now)
+        availableDailyClaim = nil
+        haptics.success()
+        audio.playSFX("order_complete")
+        analytics.log(.dailyRewardClaimed(streak: claim.newStreak))
+        evaluateAchievements()
+        await save()
+        return true
+    }
+
+    // MARK: - Lunar Codex
+
+    /// Buy one level of a Lunar Codex permanent upgrade with Lucid Shards.
+    @discardableResult
+    func purchaseCodexUpgrade(_ upgrade: LunarCodexUpgrade) -> Bool {
+        let success = gameState.purchaseCodexUpgrade(upgrade)
+        if success {
+            haptics.impact(.medium)
+            audio.playSFX("upgrade")
+            analytics.log(.codexUpgradePurchased(id: upgrade.id, level: gameState.codexLevel(of: upgrade.id)))
+            Task { await save() }
+        } else {
+            haptics.warning()
+        }
+        return success
+    }
+
+    // MARK: - Store
+
+    /// Load products and reconcile entitlements.
+    func loadStore() async {
+        await purchaseManager.loadProducts()
+    }
+
+    /// Purchase a shop item. Returns whether the purchase completed.
+    @discardableResult
+    func buy(_ item: ShopItem) async -> Bool {
+        guard let product = purchaseManager.product(for: item.id) else {
+            purchaseManager.lastErrorMessage =
+                "The store isn't available right now. Please try again later."
+            haptics.warning()
+            return false
+        }
+        let success = await purchaseManager.purchase(product)
+        if success {
+            evaluateAchievements()
+            await save()
+        }
+        return success
+    }
+
+    func restorePurchases() async {
+        await purchaseManager.restorePurchases()
+        await save()
+    }
+
+    /// Select an owned cosmetic theme.
+    @discardableResult
+    func selectTheme(_ id: String) -> Bool {
+        let changed = gameState.setTheme(id)
+        if changed {
+            Theme.current = ThemePalette.palette(id: id)
+            haptics.impact(.light)
+            Task { await save() }
+        }
+        return changed
+    }
+
+    /// Enable/disable offline reminders, requesting permission when enabling.
+    func updateNotifications(enabled: Bool) async {
+        gameState.isNotificationsEnabled = enabled
+        if enabled {
+            _ = await notificationManager.requestAuthorization()
+        } else {
+            notificationManager.cancelAll()
+        }
+        await save()
+    }
+
+    /// Mark first-launch onboarding complete.
+    func completeOnboarding() {
+        gameState.completeOnboarding()
+        Task { await save() }
+    }
+
     private func applySettingsToServices() {
         haptics.isEnabled = gameState.isSFXEnabled
         audio.isMusicEnabled = gameState.isMusicEnabled
         audio.isSFXEnabled = gameState.isSFXEnabled
+        Theme.current = ThemePalette.palette(id: gameState.theme)
     }
 
     private func startEngine() async {
@@ -310,6 +473,7 @@ final class AppContainer: ObservableObject {
         if milestoneAccumulator >= 1.0 {
             milestoneAccumulator = 0
             evaluateMilestones()
+            evaluateAchievements()
         }
     }
 

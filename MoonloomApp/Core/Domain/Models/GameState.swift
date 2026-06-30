@@ -43,6 +43,22 @@ final class GameState: ObservableObject {
     @Published private(set) var totalLucidShardsEarned: Double
     @Published private(set) var bestRunMoonlightRestored: Double
     @Published private(set) var permanentUpgradeIDs: Set<String>
+    /// Lunar Codex permanent-upgrade levels (upgrade id → level). Survives resets.
+    @Published private(set) var lunarCodexLevels: [String: Int]
+    /// Cached aggregate Lunar Codex effects (recomputed on change; read hot path).
+    private(set) var lunarCodexEffects: LunarCodexEffects = LunarCodexEffects()
+
+    // MARK: - Meta progression
+    /// Achievement identifiers the player has unlocked.
+    @Published private(set) var unlockedAchievementIDs: Set<String>
+    /// Most recent daily-reward claim.
+    @Published private(set) var lastDailyClaim: Date?
+    /// Current consecutive-day login streak.
+    @Published private(set) var dailyStreak: Int
+    /// Active StoreKit entitlement product ids (cosmetics, expansion, Pass).
+    @Published private(set) var entitlementProductIDs: Set<String>
+    /// Whether first-launch onboarding has been completed.
+    @Published private(set) var hasCompletedOnboarding: Bool
 
     // MARK: - Settings
     @Published var isMusicEnabled: Bool
@@ -70,12 +86,19 @@ final class GameState: ObservableObject {
         self.totalLucidShardsEarned = snapshot.totalLucidShardsEarned
         self.bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
         self.permanentUpgradeIDs = Set(snapshot.permanentUpgradeIDs)
+        self.lunarCodexLevels = snapshot.lunarCodexLevels
+        self.unlockedAchievementIDs = Set(snapshot.unlockedAchievementIDs)
+        self.lastDailyClaim = snapshot.lastDailyClaim
+        self.dailyStreak = snapshot.dailyStreak
+        self.entitlementProductIDs = Set(snapshot.entitlementProductIDs)
+        self.hasCompletedOnboarding = snapshot.hasCompletedOnboarding
         self.isMusicEnabled = snapshot.isMusicEnabled
         self.isSFXEnabled = snapshot.isSFXEnabled
         self.isNotificationsEnabled = snapshot.isNotificationsEnabled
         self.offlineEarningCapHours = snapshot.offlineEarningCapHours
         self.theme = snapshot.theme
         self.lastActiveTimestamp = snapshot.lastActiveTimestamp
+        recomputeCodexEffects()
     }
 
     /// Overwrite all state from a snapshot in place (used after the async load
@@ -93,12 +116,19 @@ final class GameState: ObservableObject {
         totalLucidShardsEarned = snapshot.totalLucidShardsEarned
         bestRunMoonlightRestored = snapshot.bestRunMoonlightRestored
         permanentUpgradeIDs = Set(snapshot.permanentUpgradeIDs)
+        lunarCodexLevels = snapshot.lunarCodexLevels
+        unlockedAchievementIDs = Set(snapshot.unlockedAchievementIDs)
+        lastDailyClaim = snapshot.lastDailyClaim
+        dailyStreak = snapshot.dailyStreak
+        entitlementProductIDs = Set(snapshot.entitlementProductIDs)
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
         isMusicEnabled = snapshot.isMusicEnabled
         isSFXEnabled = snapshot.isSFXEnabled
         isNotificationsEnabled = snapshot.isNotificationsEnabled
         offlineEarningCapHours = snapshot.offlineEarningCapHours
         theme = snapshot.theme
         lastActiveTimestamp = snapshot.lastActiveTimestamp
+        recomputeCodexEffects()
     }
 
     private static func decodeCurrencies(_ raw: [String: Double]) -> [ResourceType: Double] {
@@ -174,6 +204,7 @@ final class GameState: ObservableObject {
         Double(count(of: tier.id))
             * tier.baseOutputPerSecond
             * buildingMultiplier(for: tier.id)
+            * lunarCodexEffects.productionMultiplier(forTierNumber: tier.tier)
             * globalMultiplier
             * prestigeMultiplier
     }
@@ -201,6 +232,7 @@ final class GameState: ObservableObject {
     func outputPerSecondByResource() -> [ResourceType: Double] {
         let global = globalMultiplier
         let prestige = prestigeMultiplier
+        let codex = lunarCodexEffects
         var result: [ResourceType: Double] = [:]
         for tier in config.tiers {
             let count = self.count(of: tier.id)
@@ -208,6 +240,7 @@ final class GameState: ObservableObject {
             let rate = Double(count)
                 * tier.baseOutputPerSecond
                 * buildingMultiplier(for: tier.id)
+                * codex.productionMultiplier(forTierNumber: tier.tier)
                 * global
                 * prestige
             result[tier.produces, default: 0] += rate
@@ -224,9 +257,10 @@ final class GameState: ObservableObject {
     // MARK: - Multipliers
 
     /// Permanent production multiplier granted by prestige progress. Each Lucid
-    /// Shard adds a small permanent boost (foundation value; tuned later).
+    /// Shard adds a small permanent boost, plus any Lunar Codex prestige bonus
+    /// (Lucid Resonance scales with reset count).
     var prestigeMultiplier: Double {
-        1.0 + (totalLucidShardsEarned * 0.02)
+        1.0 + (totalLucidShardsEarned * 0.02) + lunarCodexEffects.prestigeBonus
     }
 
     /// Output multiplier for a building from its upgrade level (`1.5^level`).
@@ -248,6 +282,182 @@ final class GameState: ObservableObject {
     /// Lifetime Moonlight earned (drives milestones).
     var lifetimeMoonlight: Double {
         currencyLifetimeEarned[.moonlight] ?? 0
+    }
+
+    /// Lifetime Stardust earned (drives Stardust achievements).
+    var lifetimeStardust: Double {
+        currencyLifetimeEarned[.stardust] ?? 0
+    }
+
+    // MARK: - Lunar Codex (permanent prestige upgrades)
+
+    /// Recompute the cached aggregate Lunar Codex effects. Call after any change
+    /// to `lunarCodexLevels` or `resetCount`.
+    func recomputeCodexEffects() {
+        lunarCodexEffects = LunarCodex.effects(levels: lunarCodexLevels, resetCount: resetCount)
+    }
+
+    func codexLevel(of id: String) -> Int { lunarCodexLevels[id] ?? 0 }
+
+    func isCodexMaxed(_ upgrade: LunarCodexUpgrade) -> Bool {
+        codexLevel(of: upgrade.id) >= upgrade.maxLevel
+    }
+
+    func codexCost(for upgrade: LunarCodexUpgrade) -> Double {
+        upgrade.cost(forLevel: codexLevel(of: upgrade.id))
+    }
+
+    func canPurchaseCodex(_ upgrade: LunarCodexUpgrade) -> Bool {
+        !isCodexMaxed(upgrade) && amount(of: .lucidShards) >= codexCost(for: upgrade)
+    }
+
+    /// Buy one level of a Lunar Codex upgrade with Lucid Shards. Returns success.
+    @discardableResult
+    func purchaseCodexUpgrade(_ upgrade: LunarCodexUpgrade) -> Bool {
+        guard canPurchaseCodex(upgrade) else { return false }
+        guard spend(.lucidShards, codexCost(for: upgrade)) else { return false }
+        lunarCodexLevels[upgrade.id, default: 0] += 1
+        recomputeCodexEffects()
+        return true
+    }
+
+    // MARK: - Achievements
+
+    /// Number of cumulative-Moonlight milestones reached so far.
+    var milestonesReached: Int {
+        MilestoneCalculator(config: config).reachedCount(lifetimeMoonlight: lifetimeMoonlight)
+    }
+
+    func isAchievementUnlocked(_ id: String) -> Bool { unlockedAchievementIDs.contains(id) }
+
+    /// Build the metrics snapshot achievements are evaluated against.
+    func achievementContext() -> AchievementContext {
+        var perTier: [Int: Int] = [:]
+        for tier in config.tiers {
+            let owned = count(of: tier.id)
+            if owned > 0 { perTier[tier.tier] = owned }
+        }
+        return AchievementContext(
+            lifetimeMoonlight: lifetimeMoonlight,
+            moonlightPerSecond: outputPerSecond(of: .moonlight),
+            totalBuildings: totalBuildingCount,
+            perTierCount: perTier,
+            tiersUnlocked: unlockedTiers.count,
+            totalUpgradeLevels: upgradeLevels.values.reduce(0, +),
+            ordersFulfilled: ordersFulfilled,
+            biomesRestored: restoredNodeIDs.count,
+            resetCount: resetCount,
+            milestonesReached: milestonesReached,
+            lifetimeStardust: lifetimeStardust
+        )
+    }
+
+    /// Unlock any newly-satisfied achievements, granting their Stardust once.
+    /// Returns the newly-unlocked achievements for celebration.
+    @discardableResult
+    func evaluateAchievements() -> [Achievement] {
+        let context = achievementContext()
+        let newly = AchievementCatalog.newlyUnlocked(context: context, alreadyUnlocked: unlockedAchievementIDs)
+        for achievement in newly {
+            unlockedAchievementIDs.insert(achievement.id)
+            if achievement.stardustReward > 0 {
+                credit(.stardust, achievement.stardustReward)
+            }
+        }
+        return newly
+    }
+
+    // MARK: - Daily reward
+
+    /// The claim available right now, if any.
+    func availableDailyClaim(now: Date, calculator: DailyRewardCalculator) -> DailyRewardCalculator.Claim? {
+        calculator.claim(lastClaim: lastDailyClaim, currentStreak: dailyStreak, now: now)
+    }
+
+    /// Apply a daily claim: grant Stardust, advance the streak, stamp the date.
+    func applyDailyClaim(_ claim: DailyRewardCalculator.Claim, now: Date) {
+        credit(.stardust, claim.reward)
+        dailyStreak = claim.newStreak
+        lastDailyClaim = now
+    }
+
+    // MARK: - Entitlements & cosmetics
+
+    /// Credit premium Stardust (e.g. from a consumable IAP).
+    func creditStardust(_ amount: Double) {
+        credit(.stardust, amount)
+    }
+
+    /// Replace the set of active entitlements (from StoreKit reconciliation).
+    func setEntitlements(_ productIDs: Set<String>) {
+        entitlementProductIDs = productIDs
+        applyEntitlementSideEffects()
+    }
+
+    /// Add a single entitlement after a purchase completes.
+    func grantEntitlement(_ productID: String) {
+        entitlementProductIDs.insert(productID)
+        applyEntitlementSideEffects()
+    }
+
+    func ownsEntitlement(_ productID: String) -> Bool { entitlementProductIDs.contains(productID) }
+
+    /// Theme palette ids the player owns ("default" is always owned).
+    var ownedThemeIDs: Set<String> {
+        var ids: Set<String> = ["default"]
+        for productID in entitlementProductIDs {
+            if let theme = ProductCatalog.themeID(for: productID) { ids.insert(theme) }
+        }
+        return ids
+    }
+
+    var ownedMothSkinIDs: Set<String> {
+        Set(entitlementProductIDs.compactMap { ProductCatalog.mothSkinID(for: $0) })
+    }
+
+    var hasMoonloomPass: Bool { entitlementProductIDs.contains(ProductCatalog.passProductID) }
+
+    /// Offline-earnings multiplier from entitlements (Moonloom Pass → 2×).
+    var offlineEntitlementMultiplier: Double {
+        entitlementProductIDs.reduce(1.0) { max($0, ProductCatalog.offlineMultiplier(for: $1)) }
+    }
+
+    /// Base offline cap from owned convenience products.
+    private var entitlementOfflineCapHours: Int {
+        entitlementProductIDs.compactMap { ProductCatalog.offlineCapHours(for: $0) }.max()
+            ?? config.defaultOfflineCapHours
+    }
+
+    /// Effective offline cap: best of (settings cap, entitlement cap) + codex bonus.
+    var effectiveOfflineCapHours: Int {
+        let base = max(offlineEarningCapHours, entitlementOfflineCapHours)
+        return min(base + lunarCodexEffects.offlineCapBonusHours, config.hardOfflineCapHours)
+    }
+
+    /// Effective offline efficiency: base + Lunar Codex bonus (clamped below 1).
+    var effectiveOfflineEfficiency: Double {
+        min(config.offlineEfficiency + lunarCodexEffects.offlineEfficiencyBonus, 0.95)
+    }
+
+    /// Select a cosmetic theme the player owns. Returns whether it changed.
+    @discardableResult
+    func setTheme(_ id: String) -> Bool {
+        guard ownedThemeIDs.contains(id), theme != id else { return false }
+        theme = id
+        return true
+    }
+
+    func completeOnboarding() { hasCompletedOnboarding = true }
+
+    /// Apply immediate side effects of owning entitlements: raise the persisted
+    /// offline cap to match a convenience purchase, and revert to the default
+    /// theme if the current one is no longer owned.
+    private func applyEntitlementSideEffects() {
+        let entitlementCap = entitlementOfflineCapHours
+        if entitlementCap > offlineEarningCapHours {
+            offlineEarningCapHours = min(entitlementCap, config.maxOfflineCapHours)
+        }
+        if !ownedThemeIDs.contains(theme) { theme = "default" }
     }
 
     // MARK: - Per-building upgrades (levels 1...10)
@@ -435,8 +645,11 @@ final class GameState: ObservableObject {
         credit(.lucidShards, shardsEarned)
         totalLucidShardsEarned += shardsEarned
         resetCount += 1
+        // Lucid Resonance scales with reset count, so refresh codex effects now.
+        recomputeCodexEffects()
         if let firstTier = config.tiers.first {
-            currencyAmounts[firstTier.costCurrency] = config.startingMoonlight
+            currencyAmounts[firstTier.costCurrency] =
+                config.startingMoonlight + lunarCodexEffects.startingMoonlightBonus
         }
     }
 
@@ -449,7 +662,7 @@ final class GameState: ObservableObject {
     /// Project the current state into a `Codable` snapshot for persistence.
     func snapshot(now: Date) -> GameSnapshot {
         GameSnapshot(
-            schemaVersion: 1,
+            schemaVersion: 2,
             currencyAmounts: encodeCurrencies(currencyAmounts),
             currencyLifetimeEarned: encodeCurrencies(currencyLifetimeEarned),
             buildingCounts: buildingCounts,
@@ -461,6 +674,12 @@ final class GameState: ObservableObject {
             totalLucidShardsEarned: totalLucidShardsEarned,
             bestRunMoonlightRestored: bestRunMoonlightRestored,
             permanentUpgradeIDs: Array(permanentUpgradeIDs),
+            lunarCodexLevels: lunarCodexLevels,
+            unlockedAchievementIDs: Array(unlockedAchievementIDs),
+            lastDailyClaim: lastDailyClaim,
+            dailyStreak: dailyStreak,
+            entitlementProductIDs: Array(entitlementProductIDs),
+            hasCompletedOnboarding: hasCompletedOnboarding,
             isMusicEnabled: isMusicEnabled,
             isSFXEnabled: isSFXEnabled,
             isNotificationsEnabled: isNotificationsEnabled,

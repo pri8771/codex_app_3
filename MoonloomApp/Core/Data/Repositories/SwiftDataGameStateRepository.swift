@@ -15,9 +15,17 @@ actor SwiftDataGameStateRepository: GameStateRepository {
         let upgrades = try modelContext.fetch(FetchDescriptor<UpgradeRecord>())
         let prestige = try modelContext.fetch(FetchDescriptor<PrestigeRecord>()).first
         let settings = try modelContext.fetch(FetchDescriptor<SettingsRecord>()).first
+        let achievements = try modelContext.fetch(FetchDescriptor<AchievementRecord>())
+        let codex = try modelContext.fetch(FetchDescriptor<LunarCodexRecord>())
+        let entitlements = try modelContext.fetch(FetchDescriptor<EntitlementRecord>())
 
         // No save yet: signal "new game" to the caller.
         guard let prestige, let settings else { return nil }
+
+        var codexLevels: [String: Int] = [:]
+        for record in codex where record.level > 0 {
+            codexLevels[record.upgradeID] = record.level
+        }
 
         var amounts: [String: Double] = [:]
         var lifetime: [String: Double] = [:]
@@ -49,6 +57,12 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             totalLucidShardsEarned: prestige.totalLucidShardsEarned,
             bestRunMoonlightRestored: prestige.bestRunMoonlightRestored,
             permanentUpgradeIDs: prestige.permanentUpgrades,
+            lunarCodexLevels: codexLevels,
+            unlockedAchievementIDs: achievements.map(\.id),
+            lastDailyClaim: settings.lastDailyClaim,
+            dailyStreak: settings.dailyStreak,
+            entitlementProductIDs: entitlements.filter(\.isActive).map(\.productID),
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
             isMusicEnabled: settings.isMusicEnabled,
             isSFXEnabled: settings.isSFXEnabled,
             isNotificationsEnabled: settings.isNotificationsEnabled,
@@ -145,6 +159,41 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             ))
         }
 
+        // Lunar Codex permanent upgrades (upsert by upgrade id; permanent, so
+        // never removed). Levels are monotonic across New Moon Resets.
+        let existingCodex = try modelContext.fetch(FetchDescriptor<LunarCodexRecord>())
+        var codexByID = Dictionary(existingCodex.map { ($0.upgradeID, $0) }) { first, _ in first }
+        for (upgradeID, level) in snapshot.lunarCodexLevels where level > 0 {
+            if let record = codexByID[upgradeID] {
+                record.level = level
+            } else {
+                let record = LunarCodexRecord(upgradeID: upgradeID, level: level)
+                modelContext.insert(record)
+                codexByID[upgradeID] = record
+            }
+        }
+
+        // Achievements (insert-only; an unlocked achievement never re-locks).
+        let existingAchievements = try modelContext.fetch(FetchDescriptor<AchievementRecord>())
+        let achievedIDs = Set(existingAchievements.map(\.id))
+        for id in snapshot.unlockedAchievementIDs where !achievedIDs.contains(id) {
+            modelContext.insert(AchievementRecord(id: id, unlockedDate: now))
+        }
+
+        // Entitlements (upsert by product id). The snapshot's set is authoritative
+        // for which entitlements are currently active.
+        let activeProductIDs = Set(snapshot.entitlementProductIDs)
+        let existingEntitlements = try modelContext.fetch(FetchDescriptor<EntitlementRecord>())
+        var entitlementByID = Dictionary(existingEntitlements.map { ($0.productID, $0) }) { first, _ in first }
+        for record in existingEntitlements {
+            record.isActive = activeProductIDs.contains(record.productID)
+        }
+        for productID in activeProductIDs where entitlementByID[productID] == nil {
+            let record = EntitlementRecord(productID: productID, purchaseDate: now, isActive: true)
+            modelContext.insert(record)
+            entitlementByID[productID] = record
+        }
+
         // Settings (single row).
         let settings = try modelContext.fetch(FetchDescriptor<SettingsRecord>()).first
         if let settings {
@@ -154,6 +203,9 @@ actor SwiftDataGameStateRepository: GameStateRepository {
             settings.offlineEarningCapHours = snapshot.offlineEarningCapHours
             settings.theme = snapshot.theme
             settings.lastActiveTimestamp = snapshot.lastActiveTimestamp
+            settings.lastDailyClaim = snapshot.lastDailyClaim
+            settings.dailyStreak = snapshot.dailyStreak
+            settings.hasCompletedOnboarding = snapshot.hasCompletedOnboarding
         } else {
             modelContext.insert(SettingsRecord(
                 isMusicEnabled: snapshot.isMusicEnabled,
@@ -161,7 +213,10 @@ actor SwiftDataGameStateRepository: GameStateRepository {
                 isNotificationsEnabled: snapshot.isNotificationsEnabled,
                 offlineEarningCapHours: snapshot.offlineEarningCapHours,
                 theme: snapshot.theme,
-                lastActiveTimestamp: snapshot.lastActiveTimestamp
+                lastActiveTimestamp: snapshot.lastActiveTimestamp,
+                lastDailyClaim: snapshot.lastDailyClaim,
+                dailyStreak: snapshot.dailyStreak,
+                hasCompletedOnboarding: snapshot.hasCompletedOnboarding
             ))
         }
 
@@ -174,6 +229,10 @@ actor SwiftDataGameStateRepository: GameStateRepository {
         try modelContext.delete(model: UpgradeRecord.self)
         try modelContext.delete(model: PrestigeRecord.self)
         try modelContext.delete(model: SettingsRecord.self)
+        try modelContext.delete(model: AchievementRecord.self)
+        try modelContext.delete(model: LunarCodexRecord.self)
+        // NOTE: EntitlementRecord is intentionally NOT deleted — a save wipe must
+        // not revoke real purchases. Entitlements re-reconcile from StoreKit.
         // MilestoneRecord is owned by MilestoneService (reset via its own reset()).
         try modelContext.save()
     }

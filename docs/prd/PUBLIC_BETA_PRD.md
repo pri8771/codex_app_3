@@ -1,4 +1,4 @@
-# Public Beta PRD — Moonloom: Idle Dream Factory (codex_app_3)
+# Public Beta PRD — Moonloom: Idle Dream Factory (moonloom)
 
 **Version:** 1.0.0 | **Date:** 2026-06-27 | **Status:** Draft
 

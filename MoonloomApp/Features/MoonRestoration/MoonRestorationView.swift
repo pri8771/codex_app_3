@@ -31,6 +31,7 @@ struct MoonRestorationView: View {
                         moonlightBalance
                         biomeList
                         prestigePanel
+                        lunarCodexLink
                     }
                     .padding()
                 }
@@ -172,6 +173,40 @@ struct MoonRestorationView: View {
         .padding()
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 16).fill(Theme.deepBlue.opacity(0.35)))
+    }
+
+    private var lunarCodexLink: some View {
+        NavigationLink {
+            LunarCodexView()
+        } label: {
+            HStack(spacing: Theme.Space.md) {
+                Image(systemName: "book.closed.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.moonGold)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Theme.deepBlue.opacity(0.6)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lunar Codex")
+                        .font(.headline)
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Spend Lucid Shards on permanent blessings.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 4)
+                HStack(spacing: 3) {
+                    Image(systemName: ResourceType.lucidShards.systemImage)
+                    Text(formatter.string(from: gameState.amount(of: .lucidShards)))
+                }
+                .font(.subheadline.weight(.bold).monospacedDigit())
+                .foregroundStyle(Theme.moonGold)
+                Image(systemName: "chevron.right").foregroundStyle(Theme.textSecondary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .moonloomCard(opacity: 0.35)
+        }
+        .buttonStyle(.plain)
     }
 
     private func statRow(_ label: String, value: String) -> some View {

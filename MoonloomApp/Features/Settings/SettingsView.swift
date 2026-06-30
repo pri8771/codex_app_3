@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Settings screen: audio/haptics toggles, notifications, offline-cap info,
-/// reset progress, and app info. Toggles bind to `GameState` and persist via the
-/// container.
+/// Settings: personalization (theme), progress (stats/achievements), audio,
+/// notifications, offline info, purchases, data, and about.
 struct SettingsView: View {
     @EnvironmentObject private var gameState: GameState
     @EnvironmentObject private var container: AppContainer
@@ -12,9 +11,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                personalizationSection
+                progressSection
                 audioSection
                 notificationsSection
                 offlineSection
+                purchasesSection
                 dataSection
                 aboutSection
             }
@@ -33,7 +35,39 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This permanently deletes your save, including Lucid Shards and resets. This cannot be undone.")
+                Text("This permanently deletes your save, including Lucid Shards and resets. Purchased cosmetics are kept. This cannot be undone.")
+            }
+        }
+    }
+
+    private var personalizationSection: some View {
+        Section("Personalization") {
+            Picker("Factory Theme", selection: themeBinding) {
+                ForEach(ThemePalette.all, id: \.id) { palette in
+                    if gameState.ownedThemeIDs.contains(palette.id) {
+                        Text(palette.displayName).tag(palette.id)
+                    }
+                }
+            }
+            if gameState.ownedThemeIDs.count == 1 {
+                Text("Unlock more themes in the Shop.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var progressSection: some View {
+        Section("Progress") {
+            NavigationLink {
+                StatisticsView()
+            } label: {
+                Label("Statistics", systemImage: "chart.bar.fill")
+            }
+            NavigationLink {
+                AchievementsView()
+            } label: {
+                Label("Achievements", systemImage: "trophy.fill")
             }
         }
     }
@@ -48,7 +82,7 @@ struct SettingsView: View {
     private var notificationsSection: some View {
         Section("Notifications") {
             Toggle("Offline reminders", isOn: notificationsBinding)
-            Text("Get reminded when your moth couriers have gathered enough dreams.")
+            Text("Get a gentle reminder when your moth couriers have gathered enough dreams.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -59,12 +93,27 @@ struct SettingsView: View {
             HStack {
                 Text("Offline cap")
                 Spacer()
-                Text("\(gameState.offlineEarningCapHours)h")
+                Text("\(gameState.effectiveOfflineCapHours)h")
                     .foregroundStyle(.secondary)
             }
-            Text("Your factory keeps working while away, up to the cap. Expand it in the Shop (up to \(container.config.maxOfflineCapHours)h).")
+            if gameState.hasMoonloomPass {
+                Label("Moonloom Pass: 2× offline earnings", systemImage: "crown.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Your factory keeps working while away, up to the cap. Expand it in the Shop and the Lunar Codex.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var purchasesSection: some View {
+        Section("Purchases") {
+            Button {
+                Task { await container.restorePurchases() }
+            } label: {
+                Label("Restore Purchases", systemImage: "arrow.clockwise")
+            }
         }
     }
 
@@ -95,6 +144,13 @@ struct SettingsView: View {
 
     // MARK: - Bindings (persist on change)
 
+    private var themeBinding: Binding<String> {
+        Binding(
+            get: { gameState.theme },
+            set: { container.selectTheme($0) }
+        )
+    }
+
     private var musicBinding: Binding<Bool> {
         Binding(
             get: { gameState.isMusicEnabled },
@@ -119,8 +175,7 @@ struct SettingsView: View {
         Binding(
             get: { gameState.isNotificationsEnabled },
             set: { newValue in
-                gameState.isNotificationsEnabled = newValue
-                Task { await container.persistSettings() }
+                Task { await container.updateNotifications(enabled: newValue) }
             }
         )
     }

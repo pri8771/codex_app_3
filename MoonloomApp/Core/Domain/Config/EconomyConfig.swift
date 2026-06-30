@@ -227,8 +227,10 @@ struct EconomyConfig: Sendable {
     let defaultOfflineCapHours: Int = 2
     /// Offline cap after the Offline Expansion (Phase 4 spec: 12h).
     let expandedOfflineCapHours: Int = 12
-    /// Maximum offline cap reachable (Moonloom Pass, per PRD).
+    /// Maximum offline cap reachable from settings/entitlements (Moonloom Pass).
     let maxOfflineCapHours: Int = 48
+    /// Hard ceiling on the *effective* offline cap once Lunar Codex bonuses stack.
+    let hardOfflineCapHours: Int = 96
     /// Efficiency multiplier applied to offline (vs. active) production.
     let offlineEfficiency: Double = 0.5
 
@@ -254,4 +256,9 @@ struct EconomyConfig: Sendable {
     /// Which resource each order requests, cycling by order index. All orders
     /// request Moonlight (the production currency); rewards are Stardust.
     let orderRequestCycle: [ResourceType] = [.moonlight]
+
+    // MARK: - Daily login reward (MOONLOOM-PROMPT-007)
+
+    /// Stardust granted by streak day (index 0 = day 1); plateaus at the last value.
+    let dailyRewardSchedule: [Double] = [5, 7, 9, 12, 15, 18, 20]
 }

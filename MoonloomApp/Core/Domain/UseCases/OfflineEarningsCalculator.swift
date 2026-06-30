@@ -60,37 +60,50 @@ struct OfflineEarningsCalculator: Sendable {
     }
 
     /// Per-resource offline calculation (no per-building breakdown).
+    /// - Parameters:
+    ///   - efficiency: offline efficiency fraction (defaults to the config value;
+    ///     pass higher to reflect Lunar Codex / Eternal Loom bonuses).
+    ///   - multiplier: extra multiplier on offline earnings (Moonloom Pass → 2×).
     func calculate(
         perSecond: [ResourceType: Double],
         capHours: Int,
         lastActive: Date,
-        now: Date
+        now: Date,
+        efficiency: Double? = nil,
+        multiplier: Double = 1
     ) -> Result {
+        let eff = efficiency ?? config.offlineEfficiency
         let (elapsed, credited) = creditedSeconds(lastActive: lastActive, now: now, capHours: capHours)
         var earnings: [ResourceType: Double] = [:]
         if credited > 0 {
             for (resource, rate) in perSecond where rate > 0 {
-                earnings[resource] = rate * credited * config.offlineEfficiency
+                earnings[resource] = rate * credited * eff * multiplier
             }
         }
         return Result(elapsedSeconds: elapsed, creditedSeconds: credited, earnings: earnings, perTier: [])
     }
 
     /// Per-building offline calculation with a full breakdown.
-    /// - Parameter perTier: each producing tier and its active per-second rate
-    ///   (which already includes upgrade + global + prestige multipliers).
+    /// - Parameters:
+    ///   - perTier: each producing tier and its active per-second rate
+    ///     (which already includes upgrade + global + prestige multipliers).
+    ///   - efficiency: offline efficiency fraction (defaults to the config value).
+    ///   - multiplier: extra multiplier on offline earnings (Moonloom Pass → 2×).
     func calculate(
         perTier: [(tier: ProductionTier, perSecond: Double)],
         capHours: Int,
         lastActive: Date,
-        now: Date
+        now: Date,
+        efficiency: Double? = nil,
+        multiplier: Double = 1
     ) -> Result {
+        let eff = efficiency ?? config.offlineEfficiency
         let (elapsed, credited) = creditedSeconds(lastActive: lastActive, now: now, capHours: capHours)
         var earnings: [ResourceType: Double] = [:]
         var breakdown: [TierEarning] = []
         if credited > 0 {
             for entry in perTier where entry.perSecond > 0 {
-                let amount = entry.perSecond * credited * config.offlineEfficiency
+                let amount = entry.perSecond * credited * eff * multiplier
                 guard amount > 0 else { continue }
                 earnings[entry.tier.produces, default: 0] += amount
                 breakdown.append(TierEarning(

@@ -1,4 +1,4 @@
-# Prompt Log — Moonloom: Idle Dream Factory (codex_app_3)
+# Prompt Log — Moonloom: Idle Dream Factory (moonloom)
 
 **Game:** Moonloom: Idle Dream Factory
 **Platform:** iOS 17.0+
@@ -936,7 +936,7 @@ Return:
 
 ## Suggested Execution Order
 
-**For Moonloom / codex_app_3:**
+**For Moonloom / moonloom:**
 1. UNIVERSAL-PROMPT (rule setup)
 2. MOONLOOM-PROMPT-001 (foundation)
 3. MOONLOOM-PROMPT-002 (economy engine)
@@ -963,4 +963,48 @@ Return:
 
 ---
 
-*Last updated: 2026-06-28 — MOONLOOM-PROMPT-004 (full economy expansion) implemented*
+## MOONLOOM-PROMPT-009: Production Build-Out (Phases 5–8 + Polish)
+
+**Date:** 2026-06-30 | **Phase:** Implementation | **Tool:** Claude Code | **Epics:** E005–E009 | **Status:** ✅ Used
+
+**Context:** Direct instruction to develop the app from its Phase-1–4 state to
+80–90% production readiness, with all design done by Claude. Reviewed
+`pri8771/moonloom` (GitHub) and the strategic planning thread in
+`pri8771/conversation` (`Moonloom.md`). That thread — written while the authors
+believed the repo was docs-only — recommended deprioritizing Moonloom; the
+user's direct build instruction supersedes it. Its design DNA was honored:
+cozy, **non-extractive monetization** (no ads/FOMO/pay-to-win), honest economy,
+and aesthetic-first polish.
+
+**Implemented (all queued prompts MOONLOOM-PROMPT-005…008, now ✅):**
+- **Prestige / Lunar Codex (005, E006):** 10 permanent Lucid-Shard upgrades with
+  a pure effects aggregator wired into the multiplier/offline/prestige stack;
+  `LunarCodexView`. Codex levels persist across resets.
+- **Story / retention (007, E007):** 38 achievements + evaluator (Stardust
+  rewards), daily-login streak rewards (5→20 Stardust), Statistics screen,
+  first-launch Onboarding.
+- **Monetization (008, E008):** StoreKit 2 `PurchaseManager` (load / purchase /
+  restore / transaction listener / entitlement reconciliation), `Moonloom.storekit`
+  config wired into the scheme, entitlement persistence, Shop wired to real
+  purchases, and applied effects (Stardust packs, Offline Expansion, Moonloom
+  Pass 2×/48h, cosmetic themes).
+- **Design (Claude, E009):** programmatic 1024 app icon (full moon + dreamthread
+  ring), token-based design system, three cosmetic `ThemePalette`s that re-skin
+  the app, reusable card/button styles.
+- **Offline notifications (E005 T005-04):** `NotificationManager` schedules
+  offline-cap/8h/24h reminders on background, cancels on foreground.
+- **Persistence v2:** new `@Model` records (Achievement/LunarCodex/Entitlement),
+  schema v2 lightweight migration, hardened corrupt-store recovery.
+- **Accessibility:** VoiceOver labels on new screens; reduced-motion respected.
+
+**Economy decision:** the open question is resolved — the single-Moonlight
+production economy is canonical (documented in `EconomyConfig` and CURRENT_STATUS).
+
+**Verification:** `xcodebuild build` clean; `xcodebuild test` → **119 tests, 0
+failures** (was 89) on an iPhone 17 simulator; app installs/launches; onboarding
+renders. Remaining: real ASC products + sandbox-device IAP, final audio/art,
+device/accessibility QA, Instruments, TestFlight.
+
+---
+
+*Last updated: 2026-06-30 — MOONLOOM-PROMPT-009 (production build-out, Phases 5–8 + polish) implemented*

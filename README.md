@@ -9,7 +9,7 @@
 **Genre:** Idle / Incremental
 **Platform:** iOS 17.0+
 **Engine:** SwiftUI + SwiftData + StoreKit 2
-**Status:** 🟡 Active Development — playable early iOS prototype lives on PR #1
+**Status:** 🟢 Feature-complete — ~85% production ready (full idle loop, prestige + Lunar Codex, achievements, daily rewards, StoreKit 2, cosmetic themes, notifications). See `docs/CURRENT_STATUS.md`.
 
 ---
 
@@ -94,22 +94,30 @@ All monetization is cosmetic or convenience. No pay-to-win.
 
 ## 📍 Current Repository Status
 
-`main` began as the documentation phase. The first app implementation lives in
-GitHub PR #1:
+The app is **feature-complete and ~85% production ready** on
+`codex/production-readiness`. Implemented end-to-end: the SwiftUI app shell,
+SwiftData persistence (schema v2 + lightweight migration), the core idle loop,
+12 production tiers, building unlocks/upgrades, Dream Orders, Moon Restoration,
+offline earnings, prestige, the **Lunar Codex** (10 permanent prestige upgrades),
+**38 achievements**, **daily login rewards**, **onboarding**, a **statistics**
+screen, **StoreKit 2** purchasing (cosmetic + convenience only), **cosmetic
+themes** that re-skin the app, **local notifications**, a programmatic app icon,
+and a token-based design system — with **119 passing XCTest tests**.
 
-https://github.com/pri8771/codex_app_3/pull/1
+Implementation history lives in PR #1 (Phases 1–4) and PR #2
+(stabilization + this production build-out):
 
-That implementation includes the SwiftUI app shell, SwiftData persistence, core
-idle loop, 12 production tiers, building unlocks/upgrades, Dream Orders, Moon
-Restoration, offline earnings, prestige math, and XCTest coverage.
+- https://github.com/pri8771/moonloom/pull/1
+- https://github.com/pri8771/moonloom/pull/2
 
-The application is not yet production ready. StoreKit purchasing, local
-notifications, achievements, Lunar Codex permanent upgrades, final art/audio,
-full QA, accessibility polish, and App Store launch assets remain.
+**Economy decision (resolved):** Moonloom uses a single-Moonlight production
+economy (all 12 tiers produce Moonlight); Stardust comes from orders,
+achievements, daily logins, and IAP; Lucid Shards come from prestige. The
+canonical tier *names* are kept. This is the shipped model.
 
-Product note: the PRDs describe a multi-currency production chain, while the
-current prototype uses Moonlight as the single produced/spendable progression
-currency. Resolve that economy decision before balancing or beta.
+**Remaining for launch:** real App Store Connect product setup + sandbox-device
+IAP testing, final audio/art assets, device-matrix + accessibility QA,
+Instruments profiling, and TestFlight.
 
 Notion build hub:
 https://app.notion.com/p/38eab1f2276581959e1ecc46b07557de
@@ -121,7 +129,7 @@ See `docs/CURRENT_STATUS.md` for the latest engineering status.
 ## 📂 Repository Structure
 
 ```
-codex_app_3/
+moonloom/
 ├── MoonloomApp.xcodeproj
 ├── MoonloomApp/
 │   ├── App/

@@ -10,6 +10,10 @@ enum AnalyticsEvent: Sendable {
     case upgradePurchased(tierID: String, level: Int)
     case orderFulfilled(index: Int, rewardAmount: Double)
     case prestigePerformed(resetCount: Int, shardsEarned: Double)
+    case codexUpgradePurchased(id: String, level: Int)
+    case achievementsUnlocked(count: Int)
+    case dailyRewardClaimed(streak: Int)
+    case purchaseCompleted(productID: String)
     case screenViewed(name: String)
 
     var name: String {
@@ -21,6 +25,10 @@ enum AnalyticsEvent: Sendable {
         case .upgradePurchased: return "upgrade_purchased"
         case .orderFulfilled: return "order_fulfilled"
         case .prestigePerformed: return "prestige_performed"
+        case .codexUpgradePurchased: return "codex_upgrade_purchased"
+        case .achievementsUnlocked: return "achievements_unlocked"
+        case .dailyRewardClaimed: return "daily_reward_claimed"
+        case .purchaseCompleted: return "purchase_completed"
         case .screenViewed: return "screen_viewed"
         }
     }
