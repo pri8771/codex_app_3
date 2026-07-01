@@ -17,13 +17,13 @@ struct OnboardingView: View {
     private let pages: [Page] = [
         Page(systemImage: "moon.zzz.fill",
              title: "The moon has gone dark",
-             body: "Sleeping towns have lost their dreams. As keeper of the last Moonloom, you'll rebuild the Dream Factory and bring the moonlight back."),
-        Page(systemImage: "building.2.fill",
-             title: "Weave dreams while you sleep",
-             body: "Catch whispers, spin dreamthread, and let moth couriers carry finished dreams to the moon. Your factory keeps working even while you're away."),
-        Page(systemImage: "moon.stars.fill",
-             title: "Restore the moon, biome by biome",
-             body: "Spend Moonlight to relight the moon. When you've restored enough, a New Moon Reset begins a faster, brighter cycle.")
+             body: "As keeper of the last Moonloom, you'll rebuild the Dream Factory and bring the moonlight back."),
+        Page(systemImage: "hand.tap.fill",
+             title: "Tap Buy to build",
+             body: "Whisper Nets and other buildings earn Moonlight automatically, even while you're away. Tap \"Buy\" on a building to add another one — the more you own, the faster Moonlight grows."),
+        Page(systemImage: "square.grid.2x2.fill",
+             title: "Four screens, one loop",
+             body: "Factory: buy and unlock buildings. Moon: spend Moonlight to restore the moon and prestige. Shop: cosmetics. Settings: options. Watch the gold tip banner at the top — it always tells you what to do next."),
     ]
 
     var body: some View {
@@ -61,6 +61,7 @@ struct OnboardingView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(Theme.moonGold)
                 .shadow(color: Theme.moonGold.opacity(0.5), radius: 18)
+                .accessibilityHidden(true)
             VStack(spacing: Theme.Space.md) {
                 Text(item.title)
                     .font(.title.weight(.bold))
@@ -75,5 +76,6 @@ struct OnboardingView: View {
             Spacer()
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 }

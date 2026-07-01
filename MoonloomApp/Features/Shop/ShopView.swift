@@ -102,7 +102,7 @@ struct ShopView: View {
         .padding()
         .moonloomCard(opacity: 0.25)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.title), \(owned ? "owned" : price)")
+        .accessibilityLabel("\(item.title), \(owned ? "owned" : (isBusy ? "purchasing" : price))")
     }
 
     @ViewBuilder
@@ -141,6 +141,7 @@ struct ShopView: View {
                 .foregroundStyle(Theme.softViolet)
         }
         .padding(.top, Theme.Space.sm)
+        .accessibilityLabel("Restore previous purchases")
     }
 
     /// Non-consumables (themes, skins, expansion, pass) can be "owned".

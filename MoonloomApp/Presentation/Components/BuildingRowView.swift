@@ -62,7 +62,7 @@ struct BuildingRowView: View {
                 Text(tier.summary)
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 if count > 0 {
                     Text("+\(formatter.string(from: outputPerSecond)) Moonlight/s")
                         .font(.caption2.weight(.medium))

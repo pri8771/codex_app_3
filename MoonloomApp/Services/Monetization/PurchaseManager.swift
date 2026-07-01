@@ -28,7 +28,17 @@ final class PurchaseManager: ObservableObject {
     private let logger = Logger(subsystem: "com.moonloom.app", category: "Purchases")
     private var updatesTask: Task<Void, Never>?
 
+    // Persisted ledger of consumable transaction IDs already credited, so a
+    // transaction redelivered via `Transaction.updates` (e.g. the app was
+    // killed between crediting Stardust and calling `transaction.finish()`)
+    // can't credit the same purchase twice.
+    private static let processedConsumablesKey = "com.moonloom.app.processedConsumableTransactionIDs"
+    private var processedConsumableTransactionIDs: Set<UInt64>
+
     init() {
+        let stored = UserDefaults.standard.stringArray(forKey: Self.processedConsumablesKey) ?? []
+        processedConsumableTransactionIDs = Set(stored.compactMap(UInt64.init))
+
         // Listen for transactions that arrive outside an explicit purchase
         // (Ask to Buy approvals, renewals, restores on another device).
         updatesTask = Task { [weak self] in
@@ -97,6 +107,7 @@ final class PurchaseManager: ObservableObject {
             try await AppStore.sync()
         } catch {
             lastErrorMessage = error.localizedDescription
+            logger.error("AppStore.sync failed: \(error.localizedDescription, privacy: .public)")
         }
         await refreshEntitlements()
     }
@@ -131,15 +142,32 @@ final class PurchaseManager: ObservableObject {
     @discardableResult
     private func handle(verification: VerificationResult<Transaction>, creditConsumables: Bool) async -> Bool {
         guard case .verified(let transaction) = verification else {
+            if case .unverified(_, let error) = verification {
+                logger.error("Transaction failed verification: \(error.localizedDescription, privacy: .public)")
+            }
             lastErrorMessage = "Could not verify the purchase."
             return false
         }
         if ProductCatalog.isConsumable(transaction.productID) {
-            if creditConsumables { onConsumablePurchased?(transaction.productID) }
+            if creditConsumables && markConsumableProcessed(transaction.id) {
+                onConsumablePurchased?(transaction.productID)
+            }
         } else {
             await refreshEntitlements()
         }
         await transaction.finish()
+        return true
+    }
+
+    /// Records a consumable transaction ID as credited. Returns `false` (and
+    /// does not record) if it was already processed, so a redelivered but
+    /// unfinished transaction can't credit Stardust twice.
+    private func markConsumableProcessed(_ transactionID: UInt64) -> Bool {
+        guard !processedConsumableTransactionIDs.contains(transactionID) else { return false }
+        processedConsumableTransactionIDs.insert(transactionID)
+        UserDefaults.standard.set(
+            processedConsumableTransactionIDs.map(String.init),
+            forKey: Self.processedConsumablesKey)
         return true
     }
 }

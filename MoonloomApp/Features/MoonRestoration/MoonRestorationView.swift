@@ -119,6 +119,7 @@ struct MoonRestorationView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!canRestore)
+                    .accessibilityLabel("Restore \(node.name) for \(formatter.string(from: node.cost)) Moonlight")
                 }
             }
         }
@@ -169,6 +170,10 @@ struct MoonRestorationView: View {
             }
             .buttonStyle(.plain)
             .disabled(!container.canPrestige)
+            .accessibilityLabel("New Moon Reset")
+            .accessibilityHint(container.canPrestige
+                ? "Irreversibly resets your run to gain \(formatter.string(from: container.projectedShards)) Lucid Shards."
+                : "Restore the moon further to unlock this reset.")
         }
         .padding()
         .frame(maxWidth: .infinity)

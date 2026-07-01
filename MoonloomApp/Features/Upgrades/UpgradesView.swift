@@ -129,6 +129,8 @@ struct UpgradesView: View {
             }
             .buttonStyle(.plain)
             .disabled(!row.canAfford)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Upgrade \(row.tier.name) for \(viewModel.format(row.nextCost)) \(row.tier.costCurrency.displayName)")
         }
     }
 

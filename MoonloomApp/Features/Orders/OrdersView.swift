@@ -100,6 +100,7 @@ struct OrdersView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!canFulfill)
+                    .accessibilityLabel("Fulfill \(order.title) for \(formatter.string(from: order.rewardAmount)) Stardust")
                 }
             }
         }

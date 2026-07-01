@@ -57,4 +57,26 @@ final class PersistenceV2Tests: XCTestCase {
         XCTAssertTrue(reloaded.entitlementProductIDs.contains(ProductCatalog.celestialTheme))
         XCTAssertEqual(reloaded.dailyStreak, 0, "Daily streak was reset by the wipe")
     }
+
+    func testBuildingCountsClearedAfterPrestigeDoNotReappearOnReload() async throws {
+        // A New Moon Reset clears buildingCounts to [:] in memory. A save right
+        // after that must also clear the persisted counts, or a reload would
+        // silently resurrect pre-prestige buildings.
+        let config = EconomyConfig()
+        let repository = SwiftDataGameStateRepository(
+            modelContainer: AppDatabase.makeContainer(inMemory: true)
+        )
+        var beforePrestige = GameSnapshot.newGame(config: config, now: Date(timeIntervalSince1970: 1_000))
+        beforePrestige.buildingCounts = ["whisper_nets": 5, "lullaby_wells": 2]
+        try await repository.save(beforePrestige)
+
+        var afterPrestige = GameSnapshot.newGame(config: config, now: Date(timeIntervalSince1970: 2_000))
+        afterPrestige.buildingCounts = [:]
+        afterPrestige.resetCount = 1
+        try await repository.save(afterPrestige)
+
+        let reloadedResult = try await repository.load()
+        let reloaded = try XCTUnwrap(reloadedResult)
+        XCTAssertTrue(reloaded.buildingCounts.isEmpty, "Prestige must clear persisted building counts, not just in-memory state")
+    }
 }

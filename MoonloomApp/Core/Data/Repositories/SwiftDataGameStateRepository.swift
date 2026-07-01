@@ -93,9 +93,15 @@ actor SwiftDataGameStateRepository: GameStateRepository {
         }
 
         // Buildings (upsert by id). Tier metadata is sourced from EconomyConfig.
+        // Buildings missing from the snapshot (e.g. cleared by prestige) are
+        // reset to 0, mirroring the upgrade-level handling below — otherwise a
+        // New Moon Reset would silently revert on the next load.
         let config = EconomyConfig()
         let existingBuildings = try modelContext.fetch(FetchDescriptor<BuildingRecord>())
         var buildingByID = Dictionary(existingBuildings.map { ($0.id, $0) }) { first, _ in first }
+        for record in existingBuildings where (snapshot.buildingCounts[record.id] ?? 0) == 0 {
+            record.count = 0
+        }
         for (id, count) in snapshot.buildingCounts {
             let definition = config.tier(id: id)
             if let record = buildingByID[id] {

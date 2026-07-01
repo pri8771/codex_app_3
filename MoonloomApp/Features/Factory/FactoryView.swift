@@ -12,6 +12,7 @@ struct FactoryView: View {
     @State private var showOrders = false
     @State private var toastWorkItem: DispatchWorkItem?
     @State private var badgeBounce = false
+    @State private var showAllTiers = false
 
     private var viewModel: FactoryViewModel { FactoryViewModel(gameState: gameState) }
 
@@ -96,15 +97,15 @@ struct FactoryView: View {
     private func guidanceBanner(_ text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkle.magnifyingglass")
-                .foregroundStyle(Theme.moonGold)
+                .foregroundStyle(Theme.midnight)
             Text(text)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(Theme.textPrimary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.midnight)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.deepBlue.opacity(0.45)))
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.moonGold))
         .padding(.horizontal)
         .padding(.bottom, 6)
         .transition(.opacity)
@@ -144,18 +145,58 @@ struct FactoryView: View {
         .accessibilityLabel("Upgrades, \(viewModel.availableUpgradeCount) available")
     }
 
+    /// Tiers worth showing up front: unlocked ones plus the single next
+    /// reachable locked tier. Deeply-locked tiers (two or more unlocks away)
+    /// are collapsed by default so a new player sees one actionable next step
+    /// instead of a wall of "unlock the previous building first" rows.
+    private var leadingTiers: [ProductionTier] {
+        gameState.config.tiers.filter { gameState.isUnlocked($0) || gameState.isPreviousTierUnlocked($0) }
+    }
+
+    private var deeplyLockedTiers: [ProductionTier] {
+        gameState.config.tiers.filter { !gameState.isUnlocked($0) && !gameState.isPreviousTierUnlocked($0) }
+    }
+
     private var buildingList: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                // All 12 tiers are always visible; locked tiers render greyed
-                // with an unlock hint (handled inside BuildingRowView).
-                ForEach(gameState.config.tiers) { tier in
+                ForEach(leadingTiers) { tier in
                     BuildingRowView(tier: tier)
                         .padding(.horizontal)
                     Divider().overlay(Theme.textSecondary.opacity(0.15))
                 }
+                if !deeplyLockedTiers.isEmpty {
+                    moreTiersDisclosure
+                }
+                if showAllTiers {
+                    ForEach(deeplyLockedTiers) { tier in
+                        BuildingRowView(tier: tier)
+                            .padding(.horizontal)
+                        Divider().overlay(Theme.textSecondary.opacity(0.15))
+                    }
+                }
             }
             .padding(.vertical, 8)
         }
+    }
+
+    private var moreTiersDisclosure: some View {
+        Button {
+            withAnimation { showAllTiers.toggle() }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: showAllTiers ? "chevron.up" : "chevron.down")
+                Text(showAllTiers
+                     ? "Hide future buildings"
+                     : "\(deeplyLockedTiers.count) more buildings await")
+                Spacer(minLength: 0)
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.vertical, 10)
+            .padding(.horizontal)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(showAllTiers ? "Hide future buildings" : "Show \(deeplyLockedTiers.count) more locked buildings")
     }
 }

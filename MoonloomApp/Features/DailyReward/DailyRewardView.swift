@@ -87,6 +87,9 @@ struct DailyRewardView: View {
                     .fill(Theme.deepBlue.opacity(day == claim.newStreak ? 0.7 : 0.3)))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.sm)
                     .strokeBorder(day == claim.newStreak ? Theme.moonGold.opacity(0.7) : .clear, lineWidth: 1.5))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Day \(day), \(formatter.string(from: schedule[index])) Stardust, "
+                    + (day == claim.newStreak ? "today" : (reached ? "reached" : "not yet reached")))
             }
         }
     }
